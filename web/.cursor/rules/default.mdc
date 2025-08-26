@@ -1,0 +1,58 @@
+# Cursor Rules for Next.js + Supabase + TypeScript Project
+
+## Project Overview
+
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **Authentication**: Supabase Auth
+- **Database**: Supabase
+- **Package Manager**: npm
+
+## Code Style & Conventions
+
+### General Rules
+
+- 모든 코드와 주석, 로그 메시지는 영어로 작성
+- 한국어는 문서화나 사용자 인터페이스 텍스트에만 사용
+- TypeScript strict mode 사용
+- ESLint 규칙 준수
+
+### File Structure
+
+- `app/` - Next.js App Router 페이지 및 레이아웃
+- `components/` - 재사용 가능한 React 컴포넌트
+- `lib/` - 유틸리티 함수 및 설정
+- `components/ui/` - shadcn/ui 기본 컴포넌트
+
+### Component Guidelines
+
+- 모든 컴포넌트는 TypeScript로 작성
+- Props 인터페이스 명시적 정의
+- `"use client"` 지시어는 클라이언트 컴포넌트에만 사용
+- 컴포넌트명은 PascalCase 사용
+
+### Styling Guidelines
+
+- Tailwind CSS 클래스 사용
+- shadcn/ui 컴포넌트 활용
+- `cn()` 유틸리티 함수로 조건부 클래스 결합
+- 반응형 디자인 고려
+
+### Error Handling
+
+- try-catch 블록으로 비동기 작업 처리
+- 사용자 친화적인 에러 메시지 표시
+- 로딩 상태 관리
+
+### Performance
+
+- Next.js 최적화 기능 활용
+- 이미지 최적화
+- 코드 스플리팅 고려
+
+### Security
+
+- 환경 변수 사용으로 민감한 정보 보호
+- Supabase RLS (Row Level Security) 활용
+- 클라이언트 사이드 검증과 서버 사이드 검증 모두 구현
