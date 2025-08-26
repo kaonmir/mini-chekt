@@ -10,6 +10,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Site } from "@/lib/database";
 import { useEffect } from "react";
+import {
+  subscribeToGlobalAlarms,
+  getGlobalUnreadCounts,
+} from "@/lib/hooks/use-realtime-alarms";
 
 interface SiteWithUnreadCount {
   id: number;
@@ -28,12 +32,13 @@ export default function SiteSubNav() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sites, setSites] = useState<SiteWithUnreadCount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
   const pathname = usePathname();
 
   const fetchSites = async () => {
     const supabase = createClient();
 
-    // Fetch sites with unread alarm counts
+    // Fetch sites
     const { data: sitesData, error: sitesError } = await supabase
       .from("site")
       .select("*")
@@ -44,31 +49,41 @@ export default function SiteSubNav() {
       return;
     }
 
-    // Fetch unread alarm counts for each site
-    const sitesWithCounts = await Promise.all(
-      (sitesData || []).map(async (site) => {
-        const { count, error: alarmError } = await supabase
-          .from("alarm")
-          .select("*", { count: "exact", head: true })
-          .eq("site_id", site.id)
-          .eq("is_read", false);
+    // Get current unread counts from global state
+    const currentUnreadCounts = getGlobalUnreadCounts();
 
-        if (alarmError) {
-          console.error("Error fetching alarms for site", site.id, alarmError);
-          return { ...site, unread_alarms: 0 };
-        }
-
-        return { ...site, unread_alarms: count || 0 };
-      })
-    );
+    // Map sites with unread counts
+    const sitesWithCounts = (sitesData || []).map((site) => ({
+      ...site,
+      unread_alarms: currentUnreadCounts[site.id] || 0,
+    }));
 
     setSites(sitesWithCounts);
+    setUnreadCounts(currentUnreadCounts);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchSites();
   }, [pathname]); // Add pathname as dependency to refetch when URL changes
+
+  // Subscribe to global alarm updates
+  useEffect(() => {
+    const unsubscribe = subscribeToGlobalAlarms(() => {
+      const newUnreadCounts = getGlobalUnreadCounts();
+      setUnreadCounts(newUnreadCounts);
+
+      // Update sites with new unread counts
+      setSites((prevSites) =>
+        prevSites.map((site) => ({
+          ...site,
+          unread_alarms: newUnreadCounts[site.id] || 0,
+        }))
+      );
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Listen for site update events
   useEffect(() => {
@@ -191,7 +206,7 @@ export default function SiteSubNav() {
                   {site.unread_alarms > 0 && (
                     <Badge
                       variant="destructive"
-                      className={`absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs ${
+                      className={`absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs transition-all duration-200 ${
                         isCollapsed ? "h-4 w-4 text-[10px]" : ""
                       }`}
                     >

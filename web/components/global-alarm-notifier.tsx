@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { Table } from '@/lib/database';
+import { useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { Table } from "@/lib/database";
 
 type Alarm = Table<"alarm">;
 
@@ -11,7 +11,10 @@ interface GlobalAlarmNotifierProps {
   enabled?: boolean;
 }
 
-export function GlobalAlarmNotifier({ siteId, enabled = true }: GlobalAlarmNotifierProps) {
+export function GlobalAlarmNotifier({
+  siteId,
+  enabled = true,
+}: GlobalAlarmNotifierProps) {
   useEffect(() => {
     if (!enabled) return;
 
@@ -19,50 +22,44 @@ export function GlobalAlarmNotifier({ siteId, enabled = true }: GlobalAlarmNotif
 
     // Request notification permission
     const requestNotificationPermission = async () => {
-      if ('Notification' in window && Notification.permission === 'default') {
+      if ("Notification" in window && Notification.permission === "default") {
         await Notification.requestPermission();
       }
     };
 
     requestNotificationPermission();
 
-    // Set up real-time subscription for new alarms
+    // Set up broadcast channel for new alarm notifications
+    const channelName = siteId
+      ? `notification-site-${siteId}`
+      : "notification-global";
     const channel = supabase
-      .channel('global-alarm-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'alarm',
-          filter: siteId ? `site_id=eq.${siteId}` : undefined,
-        },
-        (payload) => {
-          const alarm = payload.new as Alarm;
-          
-          // Show browser notification
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('New Alarm', {
-              body: `${alarm.alarm_name} - ${alarm.alarm_type}`,
-              icon: '/favicon.ico', // You can replace with your app icon
-              tag: `alarm-${alarm.id}`,
-              requireInteraction: true,
-            });
-          }
+      .channel(channelName)
+      .on("broadcast", { event: "new-alarm" }, (payload) => {
+        const alarm = payload.payload as Alarm;
 
-          // Play notification sound (optional)
-          try {
-            const audio = new Audio('/notification.mp3'); // You can add a notification sound file
-            audio.play().catch(() => {
-              // Ignore errors if audio file doesn't exist
-            });
-          } catch (error) {
-            // Ignore audio errors
-          }
-
-          console.log('New alarm notification:', alarm);
+        // Show browser notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("New Alarm", {
+            body: `${alarm.alarm_name} - ${alarm.alarm_type}`,
+            icon: "/favicon.ico", // You can replace with your app icon
+            tag: `alarm-${alarm.id}`,
+            requireInteraction: true,
+          });
         }
-      )
+
+        // Play notification sound (optional)
+        try {
+          const audio = new Audio("/notification.mp3"); // You can add a notification sound file
+          audio.play().catch(() => {
+            // Ignore errors if audio file doesn't exist
+          });
+        } catch (error) {
+          // Ignore audio errors
+        }
+
+        console.log("New alarm notification via broadcast:", alarm);
+      })
       .subscribe();
 
     return () => {

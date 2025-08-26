@@ -1,6 +1,6 @@
 import SiteSubNav from "@/components/site-sub-nav";
 
-export default function SitesLayout({
+export default function MonitoringLayout({
   children,
 }: {
   children: React.ReactNode;

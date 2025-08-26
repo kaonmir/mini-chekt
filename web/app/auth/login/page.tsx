@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
@@ -15,10 +15,12 @@ export default async function Page({
     redirect("/");
   }
 
+  const { error } = await searchParams;
+
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
-        <LoginForm error={searchParams.error} />
+        <LoginForm error={error} />
       </div>
     </div>
   );
