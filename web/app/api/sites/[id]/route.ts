@@ -7,6 +7,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Check if user is authenticated
@@ -25,7 +26,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("site")
       .select("*")
-      .eq("id", parseInt(params.id))
+      .eq("id", parseInt(id))
       .single();
 
     if (error) {
@@ -46,6 +47,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Check if user is authenticated
@@ -66,6 +68,7 @@ export async function PUT(
       site_name: formData.get("site_name") as string,
       contact_name: (formData.get("contact_name") as string) || null,
       contact_phone: (formData.get("contact_phone") as string) || null,
+      logo_url: (formData.get("logo_url") as string) || null,
       latitude: formData.get("latitude")
         ? parseFloat(formData.get("latitude") as string)
         : null,
@@ -84,7 +87,7 @@ export async function PUT(
     const { error } = await supabase
       .from("site")
       .update(siteData)
-      .eq("id", parseInt(params.id))
+      .eq("id", parseInt(id))
       .select()
       .single();
 
@@ -106,6 +109,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Check if user is authenticated
@@ -124,7 +128,7 @@ export async function DELETE(
     const { error } = await supabase
       .from("site")
       .delete()
-      .eq("id", parseInt(params.id));
+      .eq("id", parseInt(id));
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

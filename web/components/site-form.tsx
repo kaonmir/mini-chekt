@@ -9,6 +9,7 @@ import { Save, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { InsertTable, UpdateTable } from "@/lib/database";
+import LogoUpload from "@/components/logo-upload";
 
 interface SiteFormProps {
   mode: "create" | "edit";
@@ -20,6 +21,17 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(
+    initialData?.logo_url || null
+  );
+
+  const handleLogoUploaded = (url: string) => {
+    setLogoUrl(url);
+  };
+
+  const handleLogoRemoved = () => {
+    setLogoUrl(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -56,6 +68,7 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
         site_name: siteNameInput.value,
         contact_name: contactNameInput.value || null,
         contact_phone: contactPhoneInput.value || null,
+        logo_url: logoUrl,
       };
 
       if (!siteData.site_name) {
@@ -83,6 +96,8 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
       if (result.error) {
         setError(result.error.message);
       } else {
+        // Dispatch custom event to notify navigation to refresh
+        window.dispatchEvent(new CustomEvent('site-updated'));
         router.push(`/sites/${result.data.id}`);
         router.refresh();
       }
@@ -121,6 +136,14 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
               required
             />
           </div>
+
+          <LogoUpload
+            currentLogoUrl={initialData?.logo_url}
+            onLogoUploaded={handleLogoUploaded}
+            onLogoRemoved={handleLogoRemoved}
+          />
+
+          <input type="hidden" name="logo_url" value={logoUrl || ""} />
 
           <div className="space-y-2">
             <Label htmlFor="contact_name">Contact Name</Label>

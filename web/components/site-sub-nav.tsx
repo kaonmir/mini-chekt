@@ -30,48 +30,61 @@ export default function SiteSubNav() {
   const [loading, setLoading] = useState(true);
   const pathname = usePathname();
 
-  useEffect(() => {
-    async function fetchSites() {
-      const supabase = createClient();
+  const fetchSites = async () => {
+    const supabase = createClient();
 
-      // Fetch sites with unread alarm counts
-      const { data: sitesData, error: sitesError } = await supabase
-        .from("site")
-        .select("*")
-        .order("site_name");
+    // Fetch sites with unread alarm counts
+    const { data: sitesData, error: sitesError } = await supabase
+      .from("site")
+      .select("*")
+      .order("site_name");
 
-      if (sitesError) {
-        console.error("Error fetching sites:", sitesError);
-        return;
-      }
-
-      // Fetch unread alarm counts for each site
-      const sitesWithCounts = await Promise.all(
-        (sitesData || []).map(async (site) => {
-          const { count, error: alarmError } = await supabase
-            .from("alarm")
-            .select("*", { count: "exact", head: true })
-            .eq("site_id", site.id)
-            .eq("is_read", false);
-
-          if (alarmError) {
-            console.error(
-              "Error fetching alarms for site",
-              site.id,
-              alarmError
-            );
-            return { ...site, unread_alarms: 0 };
-          }
-
-          return { ...site, unread_alarms: count || 0 };
-        })
-      );
-
-      setSites(sitesWithCounts);
-      setLoading(false);
+    if (sitesError) {
+      console.error("Error fetching sites:", sitesError);
+      return;
     }
 
+    // Fetch unread alarm counts for each site
+    const sitesWithCounts = await Promise.all(
+      (sitesData || []).map(async (site) => {
+        const { count, error: alarmError } = await supabase
+          .from("alarm")
+          .select("*", { count: "exact", head: true })
+          .eq("site_id", site.id)
+          .eq("is_read", false);
+
+        if (alarmError) {
+          console.error(
+            "Error fetching alarms for site",
+            site.id,
+            alarmError
+          );
+          return { ...site, unread_alarms: 0 };
+        }
+
+        return { ...site, unread_alarms: count || 0 };
+      })
+    );
+
+    setSites(sitesWithCounts);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchSites();
+  }, [pathname]); // Add pathname as dependency to refetch when URL changes
+
+  // Listen for site update events
+  useEffect(() => {
+    const handleSiteUpdate = () => {
+      setLoading(true); // Show loading state when updating
+      fetchSites();
+    };
+
+    window.addEventListener('site-updated', handleSiteUpdate);
+    return () => {
+      window.removeEventListener('site-updated', handleSiteUpdate);
+    };
   }, []);
 
   const isActiveSite = (siteId: number) => {
@@ -156,15 +169,27 @@ export default function SiteSubNav() {
               >
                 {/* Site Logo/Icon */}
                 <div className="relative flex-shrink-0">
-                  <div
-                    className={`w-8 h-8 rounded-full bg-muted flex items-center justify-center ${
-                      isActiveSite(site.id)
-                        ? "bg-primary-foreground/20"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <Building2 className="h-4 w-4" />
-                  </div>
+                  {site.logo_url ? (
+                    <img
+                      src={site.logo_url}
+                      alt={`${site.site_name} logo`}
+                      className={`w-8 h-8 rounded-full object-cover border ${
+                        isActiveSite(site.id)
+                          ? "border-primary-foreground/30"
+                          : "border-border"
+                      }`}
+                    />
+                  ) : (
+                    <div
+                      className={`w-8 h-8 rounded-full bg-muted flex items-center justify-center ${
+                        isActiveSite(site.id)
+                          ? "bg-primary-foreground/20"
+                          : "bg-muted"
+                      }`}
+                    >
+                      <Building2 className="h-4 w-4" />
+                    </div>
+                  )}
 
                   {/* Unread Badge */}
                   {site.unread_alarms > 0 && (
@@ -191,16 +216,6 @@ export default function SiteSubNav() {
                         {site.site_name}
                       </p>
                     </div>
-
-                    {/* Unread count with bell icon */}
-                    {site.unread_alarms > 0 && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Bell className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          {site.unread_alarms} unread
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

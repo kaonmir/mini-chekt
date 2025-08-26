@@ -90,15 +90,16 @@ async function getSiteStats(siteId: string) {
 }
 
 export default async function SiteDetailPage({ params }: PageProps) {
-  const site = await getSite(params.id);
+  const { id } = await params;
+  const site = await getSite(id);
 
   if (!site) {
     notFound();
   }
 
   const [alarms, stats] = await Promise.all([
-    getSiteAlarms(params.id),
-    getSiteStats(params.id),
+    getSiteAlarms(id),
+    getSiteStats(id),
   ]);
 
   const getAlarmTypeColor = (alarmType: string) => {
@@ -132,12 +133,21 @@ export default async function SiteDetailPage({ params }: PageProps) {
       {/* Header */}
       <div className="border-b border-border p-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Building2 className="h-8 w-8 text-primary" />
-              {site.site_name}
-            </h1>
-            <p className="text-muted-foreground mt-1">Site ID: {site.id}</p>
+          <div className="flex items-center gap-4">
+            {site.logo_url ? (
+              <img
+                src={site.logo_url}
+                alt={`${site.site_name} logo`}
+                className="w-16 h-16 object-cover rounded-lg border"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Building2 className="h-8 w-8 text-gray-400" />
+              </div>
+            )}
+            <div>
+              <h1 className="text-3xl font-bold">{site.site_name}</h1>
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -157,57 +167,6 @@ export default async function SiteDetailPage({ params }: PageProps) {
               </Button>
             </Link>
           </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="p-6 border-b border-border">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Alarms
-                  </p>
-                  <p className="text-2xl font-bold">{stats.totalAlarms}</p>
-                </div>
-                <Bell className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Unread Alarms
-                  </p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {stats.unreadAlarms}
-                  </p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Motion Alarms
-                  </p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {stats.criticalAlarms}
-                  </p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
@@ -376,8 +335,11 @@ export default async function SiteDetailPage({ params }: PageProps) {
                                 {new Date(alarm.last_alarm_at).toLocaleString()}
                               </span>
                               {!alarm.is_read && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Unread
+                                <Badge
+                                  variant="destructive"
+                                  className="text-xs"
+                                >
+                                  {stats.unreadAlarms}
                                 </Badge>
                               )}
                             </div>

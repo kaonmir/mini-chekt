@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import type { Site } from "@/lib/database";
+import { Building2 } from "lucide-react";
 
 export function SiteList() {
   const [sites, setSites] = useState<Site[]>([]);
@@ -13,19 +14,19 @@ export function SiteList() {
     const fetchSites = async () => {
       try {
         const supabase = createClient();
-        
+
         // Type-safe query - TypeScript will provide autocomplete and type checking
         const { data, error } = await supabase
-          .from('site')
-          .select('*')
-          .order('site_name', { ascending: true });
+          .from("site")
+          .select("*")
+          .order("site_name", { ascending: true });
 
         if (error) throw error;
-        
+
         // data is automatically typed as Site[]
         setSites(data || []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch sites');
+        setError(err instanceof Error ? err.message : "Failed to fetch sites");
       } finally {
         setLoading(false);
       }
@@ -46,15 +47,30 @@ export function SiteList() {
         <ul className="space-y-2">
           {sites.map((site) => (
             <li key={site.id} className="p-3 border rounded">
-              <h3 className="font-semibold">{site.site_name}</h3>
-              {site.contact_name && (
-                <p className="text-sm text-gray-600">
-                  Contact: {site.contact_name}
-                </p>
-              )}
-              <p className="text-xs text-gray-500">
-                Status: {site.arm_status}
-              </p>
+              <div className="flex items-center gap-3">
+                {site.logo_url ? (
+                  <img
+                    src={site.logo_url}
+                    alt={`${site.site_name} logo`}
+                    className="w-10 h-10 object-cover rounded border"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="font-semibold">{site.site_name}</h3>
+                  {site.contact_name && (
+                    <p className="text-sm text-gray-600">
+                      Contact: {site.contact_name}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    Status: {site.arm_status}
+                  </p>
+                </div>
+              </div>
             </li>
           ))}
         </ul>

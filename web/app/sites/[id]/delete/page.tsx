@@ -25,7 +25,8 @@ export default async function DeleteSitePage({
 }: {
   params: { id: string };
 }) {
-  const site = await getSite(params.id);
+  const { id } = await params;
+  const site = await getSite(id);
 
   if (!site) {
     notFound();

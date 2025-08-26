@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       site_name: formData.get("site_name") as string,
       contact_name: (formData.get("contact_name") as string) || null,
       contact_phone: (formData.get("contact_phone") as string) || null,
+      logo_url: (formData.get("logo_url") as string) || null,
       latitude: formData.get("latitude")
         ? parseFloat(formData.get("latitude") as string)
         : null,

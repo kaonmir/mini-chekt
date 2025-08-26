@@ -43,6 +43,8 @@ export default function SiteDeleteConfirmation({
       if (error) {
         setError(error.message);
       } else {
+        // Dispatch custom event to notify navigation to refresh
+        window.dispatchEvent(new CustomEvent('site-updated'));
         router.push("/sites");
         router.refresh();
       }
