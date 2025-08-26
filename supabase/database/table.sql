@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS alarm (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
 
+  snapshot_urls text[],
+
   FOREIGN KEY (site_id) REFERENCES site(id),
   FOREIGN KEY (bridge_id) REFERENCES bridge(id),
   FOREIGN KEY (camera_id) REFERENCES camera(id)

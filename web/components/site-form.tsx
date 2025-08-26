@@ -97,7 +97,7 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
         setError(result.error.message);
       } else {
         // Dispatch custom event to notify navigation to refresh
-        window.dispatchEvent(new CustomEvent('site-updated'));
+        window.dispatchEvent(new CustomEvent("site-updated"));
         router.push(`/sites/${result.data.id}`);
         router.refresh();
       }

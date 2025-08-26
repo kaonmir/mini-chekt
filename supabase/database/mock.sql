@@ -1,10 +1,10 @@
 -- Mock data for site table
 INSERT INTO site (site_name, contact_name, contact_phone, logo_url, arm_status, arm_status_changed_at) VALUES
-('Seoul Central Office', 'Kim Min-su', '+82-2-1234-5678', 'https://example.com/logos/seoul-central.png', 'arm', '2024-01-15 09:00:00+09'),
-('Busan Harbor Facility', 'Park Ji-hyun', '+82-51-9876-5432', 'https://example.com/logos/busan-harbor.png', 'disarm', '2024-01-14 18:30:00+09'),
-('Incheon Airport Terminal', 'Lee Dong-wook', '+82-32-5555-1234', 'https://example.com/logos/incheon-airport.png', 'arm', '2024-01-15 06:00:00+09'),
-('Daegu Manufacturing Plant', 'Choi Soo-jin', '+82-53-7777-8888', 'https://example.com/logos/daegu-plant.png', 'arm', '2024-01-15 08:15:00+09'),
-('Daejeon Research Center', 'Jung Hae-won', '+82-42-3333-4444', 'https://example.com/logos/daejeon-research.png', 'disarm', '2024-01-14 22:00:00+09');
+('Seoul Central Office', 'Kim Min-su', '+82-2-1234-5678', null, 'arm', '2024-01-15 09:00:00+09'),
+('Busan Harbor Facility', 'Park Ji-hyun', '+82-51-9876-5432', null, 'disarm', '2024-01-14 18:30:00+09'),
+('Incheon Airport Terminal', 'Lee Dong-wook', '+82-32-5555-1234', null, 'arm', '2024-01-15 06:00:00+09'),
+('Daegu Manufacturing Plant', 'Choi Soo-jin', '+82-53-7777-8888', null, 'arm', '2024-01-15 08:15:00+09'),
+('Daejeon Research Center', 'Jung Hae-won', '+82-42-3333-4444', null, 'disarm', '2024-01-14 22:00:00+09');
 
 -- Mock data for bridge table
 INSERT INTO bridge (site_id, bridge_name, healthy, last_checked_at) VALUES
@@ -38,14 +38,14 @@ INSERT INTO camera (bridge_id, camera_name, ip_address, username, password, heal
 (10, 'Research Server Cam', '192.168.5.201', 'research_admin', 'researchpass654', false, '2024-01-15 08:30:00+09');
 
 -- Mock data for alarm table
-INSERT INTO alarm (site_id, bridge_id, camera_id, alarm_name, alarm_type, last_alarm_at, is_read, read_at) VALUES
-(2, 4, 6, 'Camera Connection Lost', 'connection_error', '2024-01-15 09:45:00+09', false, NULL),
-(5, 10, 15, 'Server Room Access Detected', 'unauthorized_access', '2024-01-15 08:30:00+09', true, '2024-01-15 08:35:00+09'),
-(1, 1, 1, 'Motion Detected at Main Entrance', 'motion_detection', '2024-01-15 10:30:00+09', false, NULL),
-(3, 5, 7, 'Security Checkpoint Alert', 'security_alert', '2024-01-15 07:20:00+09', true, '2024-01-15 07:25:00+09'),
-(4, 7, 10, 'Factory Equipment Malfunction', 'equipment_error', '2024-01-15 09:00:00+09', false, NULL),
-(2, 3, 4, 'Harbor Dock Activity', 'motion_detection', '2024-01-15 09:45:00+09', false, NULL),
-(1, 2, 3, 'Backup System Activated', 'system_alert', '2024-01-15 10:30:00+09', true, '2024-01-15 10:32:00+09'),
-(3, 6, 9, 'Terminal Gate Opened', 'access_control', '2024-01-15 07:20:00+09', false, NULL),
-(5, 9, 13, 'Research Lab Door Opened', 'access_control', '2024-01-15 08:30:00+09', true, '2024-01-15 08:33:00+09'),
-(4, 8, 12, 'Warehouse Inventory Check', 'scheduled_event', '2024-01-15 09:00:00+09', false, NULL);
+INSERT INTO alarm (site_id, bridge_id, camera_id, alarm_name, alarm_type, last_alarm_at, is_read, read_at, snapshot_urls) VALUES
+(2, 4, 6, 'Camera Connection Lost', 'connection_error', '2024-01-15 09:45:00+09', false, NULL, ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(5, 10, 15, 'Server Room Access Detected', 'unauthorized_access', '2024-01-15 08:30:00+09', true, '2024-01-15 08:35:00+09', ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(1, 1, 1, 'Motion Detected at Main Entrance', 'motion_detection', '2024-01-15 10:30:00+09', false, NULL, ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(3, 5, 7, 'Security Checkpoint Alert', 'security_alert', '2024-01-15 07:20:00+09', true, '2024-01-15 07:25:00+09', ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(4, 7, 10, 'Factory Equipment Malfunction', 'equipment_error', '2024-01-15 09:00:00+09', false, NULL, ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(2, 3, 4, 'Harbor Dock Activity', 'motion_detection', '2024-01-15 09:45:00+09', false, NULL, ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(1, 2, 3, 'Backup System Activated', 'system_alert', '2024-01-15 10:30:00+09', true, '2024-01-15 10:32:00+09', ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(3, 6, 9, 'Terminal Gate Opened', 'access_control', '2024-01-15 07:20:00+09', false, NULL, ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(5, 9, 13, 'Research Lab Door Opened', 'access_control', '2024-01-15 08:30:00+09', true, '2024-01-15 08:33:00+09', ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']),
+(4, 8, 12, 'Warehouse Inventory Check', 'scheduled_event', '2024-01-15 09:00:00+09', false, NULL, ARRAY['https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300', 'https://picsum.photos/200/300']);

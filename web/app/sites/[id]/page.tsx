@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlarmList } from "@/components/alarm-list";
 import {
   Building2,
   Edit,
@@ -307,60 +308,8 @@ export default async function SiteDetailPage({ params }: PageProps) {
 
             <TabsContent value="alarms" className="space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="h-5 w-5" />
-                    Recent Alarms
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {alarms.map((alarm) => (
-                      <div
-                        key={alarm.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          {getAlarmTypeIcon(alarm.alarm_type)}
-                          <div>
-                            <p className="font-medium">
-                              {alarm.alarm_name || "Alarm"}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Type: {alarm.alarm_type}
-                            </p>
-                            <div className="flex items-center gap-4 mt-1">
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {new Date(alarm.last_alarm_at).toLocaleString()}
-                              </span>
-                              {!alarm.is_read && (
-                                <Badge
-                                  variant="destructive"
-                                  className="text-xs"
-                                >
-                                  {stats.unreadAlarms}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <Badge variant={getAlarmTypeColor(alarm.alarm_type)}>
-                          {alarm.alarm_type}
-                        </Badge>
-                      </div>
-                    ))}
-
-                    {alarms.length === 0 && (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Bell className="h-12 w-12 mx-auto mb-4" />
-                        <p className="text-lg font-medium">No alarms found</p>
-                        <p className="text-sm">
-                          This site has no alarm history
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                <CardContent className="pt-6">
+                  <AlarmList siteId={parseInt(id)} />
                 </CardContent>
               </Card>
             </TabsContent>

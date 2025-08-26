@@ -54,11 +54,7 @@ export default function SiteSubNav() {
           .eq("is_read", false);
 
         if (alarmError) {
-          console.error(
-            "Error fetching alarms for site",
-            site.id,
-            alarmError
-          );
+          console.error("Error fetching alarms for site", site.id, alarmError);
           return { ...site, unread_alarms: 0 };
         }
 
@@ -81,9 +77,9 @@ export default function SiteSubNav() {
       fetchSites();
     };
 
-    window.addEventListener('site-updated', handleSiteUpdate);
+    window.addEventListener("site-updated", handleSiteUpdate);
     return () => {
-      window.removeEventListener('site-updated', handleSiteUpdate);
+      window.removeEventListener("site-updated", handleSiteUpdate);
     };
   }, []);
 
