@@ -8,11 +8,13 @@ import (
 	"syscall"
 	"time"
 
+	alarm "github.com/kaonmir/bridge/internal/alarm"
 	"github.com/kaonmir/bridge/internal/config"
 	"github.com/kaonmir/bridge/internal/logger"
 	"github.com/kaonmir/bridge/internal/manager/initializer"
+	"github.com/kaonmir/bridge/internal/manager/subscription"
 	"github.com/kaonmir/bridge/internal/smtp"
-	"github.com/supabase-community/supabase-go"
+	"github.com/kaonmir/bridge/internal/supabase"
 )
 
 // Core is an instance of bridge server supporting multiple protocols.
@@ -22,9 +24,11 @@ type Core struct {
 	logger    *logger.Logger
 	config    *config.Config
 
-	smtpServer  *smtp.Server
-	supabase    *supabase.Client
-	initializer *initializer.Initializer
+	smtpServer   *smtp.Server
+	supabase     *supabase.Supabase
+	initializer  *initializer.Initializer
+	alarmManager *alarm.Manager
+	subscription *subscription.Subscription
 }
 
 // Event represents an event to be sent to the server
@@ -47,7 +51,7 @@ func New(args []string) (*Core, bool) {
 	smtpServer := smtp.New(log, cfg.SMTPPort)
 
 	// Use the new Supabase client initialization function
-	supabase, err := NewSupabaseClient(cfg)
+	supabase, err := supabase.NewSupabaseClient(cfg)
 	if err != nil {
 		log.Log(logger.Error, "Failed to create Supabase client: %v", err)
 		return nil, false
@@ -55,15 +59,23 @@ func New(args []string) (*Core, bool) {
 
 	initializer := initializer.NewInitializer(log, cfg, supabase)
 
+	// Create alarm manager with SMTP channel
+	alarmManager := alarm.New(log, smtpServer.GetMailChannel(), cfg, supabase, initializer)
+
+	// Create subscription manager
+	subscriptionManager := subscription.NewSubscription(supabase.RealtimeClient, log)
+
 	pa := &Core{
 		ctx:       ctx,
 		ctxCancel: ctxCancel,
 		logger:    log,
 		config:    cfg,
 
-		smtpServer:  smtpServer,
-		supabase:    supabase,
-		initializer: initializer,
+		smtpServer:   smtpServer,
+		supabase:     supabase,
+		initializer:  initializer,
+		alarmManager: alarmManager,
+		subscription: subscriptionManager,
 	}
 
 	if !pa.start() {
@@ -76,11 +88,21 @@ func New(args []string) (*Core, bool) {
 
 func (pa *Core) start() bool {
 
-	// Start SMTP server
-	if err := pa.smtpServer.Start(); err != nil {
-		pa.logger.Log(logger.Error, "Failed to start SMTP server: %v", err)
+	// Start alarm manager first
+	pa.alarmManager.Start()
+
+	// Setup Supabase realtime subscriptions
+	if err := pa.subscription.SetupAllSubscriptions(); err != nil {
+		pa.logger.Log(logger.Error, "Failed to setup subscriptions: %v", err)
 		return false
 	}
+
+	// Start SMTP server in a goroutine
+	go func() {
+		if err := pa.smtpServer.Start(); err != nil {
+			pa.logger.Log(logger.Error, "Failed to start SMTP server: %v", err)
+		}
+	}()
 
 	pa.logger.Log(logger.Info, "Bridge service started successfully")
 	pa.logger.Log(logger.Info, "- Server URL: %s", pa.config.ServerURL)
@@ -92,6 +114,12 @@ func (pa *Core) close() {
 	pa.logger.Log(logger.Info, "Stopping bridge services")
 
 	pa.ctxCancel()
+
+	// Stop alarm manager
+	if pa.alarmManager != nil {
+		pa.alarmManager.Stop()
+		pa.logger.Log(logger.Info, "Alarm manager stopped")
+	}
 
 	// Stop SMTP server
 	if pa.smtpServer != nil {

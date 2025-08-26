@@ -21,19 +21,24 @@ type Mail struct {
 
 // Server represents an SMTP server
 type Server struct {
-	server *smtp.Server
-	logger *logger.Logger
+	server   *smtp.Server
+	logger   *logger.Logger
+	mailChan chan Mail
 }
 
 // Backend implements the SMTP backend interface
 type Backend struct {
-	logger *logger.Logger
+	logger   *logger.Logger
+	mailChan chan Mail
 }
 
 // New creates a new SMTP server with logger
 func New(logger *logger.Logger, port int) *Server {
+	mailChan := make(chan Mail, 100) // Buffer size of 100
+
 	backend := &Backend{
-		logger: logger,
+		logger:   logger,
+		mailChan: mailChan,
 	}
 
 	server := smtp.NewServer(backend)
@@ -46,24 +51,27 @@ func New(logger *logger.Logger, port int) *Server {
 	server.AllowInsecureAuth = true
 
 	return &Server{
-		server: server,
-		logger: logger,
+		server:   server,
+		logger:   logger,
+		mailChan: mailChan,
 	}
 }
 
 // NewSession creates a new SMTP session
 func (b *Backend) NewSession(c *smtp.Conn) (smtp.Session, error) {
 	return &Session{
-		logger: b.logger,
+		logger:   b.logger,
+		mailChan: b.mailChan,
 	}, nil
 }
 
 // Session represents an SMTP session
 type Session struct {
-	from   string
-	to     []string
-	logger *logger.Logger
-	auth   bool // Track authentication status
+	from     string
+	to       []string
+	logger   *logger.Logger
+	auth     bool // Track authentication status
+	mailChan chan Mail
 }
 
 // Ensure Session implements AuthSession interface
@@ -125,8 +133,35 @@ func (s *Session) Data(r io.Reader) error {
 	s.logger.Log(logger.Debug, "Received email from %s to %v", s.from, s.to)
 	s.logger.Log(logger.Debug, "Email data length: %d bytes", len(data))
 
-	// Send entire email content via channel
-	s.handleMail(data)
+	// Parse the email data to extract parts
+	parts, err := ParseMultipartEmail(data)
+	if err != nil {
+		s.logger.Log(logger.Error, "Failed to parse multipart email: %v", err)
+		// Create a simple text part as fallback
+		parts = []EmailPart{
+			{
+				ContentType: "text/plain",
+				Content:     data,
+				Headers:     make(map[string]string),
+			},
+		}
+	}
+
+	// Create Mail struct and send via channel
+	mail := Mail{
+		From:    s.from,
+		To:      s.to,
+		Content: data,
+		Parts:   parts,
+	}
+
+	// Send mail via channel
+	select {
+	case s.mailChan <- mail:
+		s.logger.Log(logger.Info, "Email sent to channel successfully")
+	default:
+		s.logger.Log(logger.Warn, "Channel is full, dropping email")
+	}
 
 	return nil
 }
@@ -183,4 +218,9 @@ func (s *Server) Stop() error {
 // GetListener returns the underlying listener (useful for testing)
 func (s *Server) GetListener() (net.Listener, error) {
 	return net.Listen("tcp", s.server.Addr)
+}
+
+// GetMailChannel returns the mail channel for receiving emails
+func (s *Server) GetMailChannel() chan Mail {
+	return s.mailChan
 }

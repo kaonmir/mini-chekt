@@ -27,15 +27,28 @@ func (d *DahuaParser) IsAlarm(data interface{}) (bool, error) {
 	if !ok {
 		return false, fmt.Errorf("data is not a *smtp.Mail")
 	}
-	if len(email.Parts) == 0 || !strings.HasPrefix(email.Parts[0].ContentType, "text/plain") {
-		d.logger.Log(logger.Debug, "Checking if email content is a Dahua alarm event: %s", email.Parts[0].ContentType)
+
+	// Check if Parts array is empty
+	if len(email.Parts) == 0 {
+		d.logger.Log(logger.Debug, "Email has no parts, using raw content")
+		// Use raw content as fallback
+		contentStr := string(email.Content)
+		return (strings.HasPrefix(strings.TrimSpace(contentStr), "Alarm Event:") ||
+			strings.Contains(contentStr, "Alarm Device Name:") ||
+			strings.Contains(contentStr, "Alarm Input Channel:")), nil
+	}
+
+	if !strings.HasPrefix(email.Parts[0].ContentType, "text/plain") {
+		d.logger.Log(logger.Debug, "Email content type is not text/plain: %s", email.Parts[0].ContentType)
 		return false, nil
 	}
 
+	// Try to decode as base64 first
 	content, err := base64.StdEncoding.DecodeString(string(email.Parts[0].Content))
 	if err != nil {
-		d.logger.Log(logger.Error, "Failed to decode base64 content: %v", err)
-		return false, err
+		d.logger.Log(logger.Debug, "Content is not base64 encoded, using raw content")
+		// If not base64, use raw content
+		content = email.Parts[0].Content
 	}
 
 	// Check for Dahua-specific alarm indicators
@@ -51,13 +64,24 @@ func (d *DahuaParser) ParseAlarm(data interface{}) (*database.PublicAlarmInsert,
 	if !ok {
 		return nil, fmt.Errorf("data is not a *smtp.Mail")
 	}
-	// Decode base64 content
-	decodedContent, err := base64.StdEncoding.DecodeString(string(email.Parts[0].Content))
-	if err != nil {
-		d.logger.Log(logger.Error, "Failed to decode base64 content: %v", err)
-		return nil, err
+
+	var content string
+
+	// Check if Parts array is empty
+	if len(email.Parts) == 0 {
+		d.logger.Log(logger.Debug, "Email has no parts, using raw content")
+		content = string(email.Content)
+	} else {
+		// Try to decode as base64 first
+		decodedContent, err := base64.StdEncoding.DecodeString(string(email.Parts[0].Content))
+		if err != nil {
+			d.logger.Log(logger.Debug, "Content is not base64 encoded, using raw content")
+			// If not base64, use raw content
+			content = string(email.Parts[0].Content)
+		} else {
+			content = string(decodedContent)
+		}
 	}
-	content := string(decodedContent)
 
 	lines := strings.Split(content, "\n")
 	dahuaData := &database.PublicAlarmInsert{}
@@ -105,6 +129,7 @@ func (d *DahuaParser) ParseAlarm(data interface{}) (*database.PublicAlarmInsert,
 		LastAlarmAt: dahuaData.LastAlarmAt,
 		CameraId:    dahuaData.CameraId,
 		BridgeId:    dahuaData.BridgeId,
+		// SiteId will be set by the alarm manager from initializer
 	}
 
 	return event, nil

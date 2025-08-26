@@ -1,5 +1,77 @@
 package database
 
+type PublicBridgeSelect struct {
+  AccessToken   *string `json:"access_token"`
+  BridgeName    string  `json:"bridge_name"`
+  BridgeUuid    string  `json:"bridge_uuid"`
+  CreatedAt     string  `json:"created_at"`
+  Healthy       bool    `json:"healthy"`
+  Id            int64   `json:"id"`
+  LastCheckedAt string  `json:"last_checked_at"`
+  SiteId        *int64  `json:"site_id"`
+  UpdatedAt     string  `json:"updated_at"`
+}
+
+type PublicBridgeInsert struct {
+  AccessToken   *string `json:"access_token"`
+  BridgeName    string  `json:"bridge_name"`
+  BridgeUuid    string  `json:"bridge_uuid"`
+  CreatedAt     *string `json:"created_at"`
+  Healthy       *bool   `json:"healthy"`
+  Id            *int64  `json:"id"`
+  LastCheckedAt *string `json:"last_checked_at"`
+  SiteId        *int64  `json:"site_id"`
+  UpdatedAt     *string `json:"updated_at"`
+}
+
+type PublicBridgeUpdate struct {
+  AccessToken   *string `json:"access_token"`
+  BridgeName    *string `json:"bridge_name"`
+  BridgeUuid    *string `json:"bridge_uuid"`
+  CreatedAt     *string `json:"created_at"`
+  Healthy       *bool   `json:"healthy"`
+  Id            *int64  `json:"id"`
+  LastCheckedAt *string `json:"last_checked_at"`
+  SiteId        *int64  `json:"site_id"`
+  UpdatedAt     *string `json:"updated_at"`
+}
+
+type PublicSiteSelect struct {
+  ArmStatus          string  `json:"arm_status"`
+  ArmStatusChangedAt string  `json:"arm_status_changed_at"`
+  ContactName        *string `json:"contact_name"`
+  ContactPhone       *string `json:"contact_phone"`
+  CreatedAt          string  `json:"created_at"`
+  Id                 int64   `json:"id"`
+  LogoUrl            *string `json:"logo_url"`
+  SiteName           string  `json:"site_name"`
+  UpdatedAt          string  `json:"updated_at"`
+}
+
+type PublicSiteInsert struct {
+  ArmStatus          *string `json:"arm_status"`
+  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
+  ContactName        *string `json:"contact_name"`
+  ContactPhone       *string `json:"contact_phone"`
+  CreatedAt          *string `json:"created_at"`
+  Id                 *int64  `json:"id"`
+  LogoUrl            *string `json:"logo_url"`
+  SiteName           string  `json:"site_name"`
+  UpdatedAt          *string `json:"updated_at"`
+}
+
+type PublicSiteUpdate struct {
+  ArmStatus          *string `json:"arm_status"`
+  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
+  ContactName        *string `json:"contact_name"`
+  ContactPhone       *string `json:"contact_phone"`
+  CreatedAt          *string `json:"created_at"`
+  Id                 *int64  `json:"id"`
+  LogoUrl            *string `json:"logo_url"`
+  SiteName           *string `json:"site_name"`
+  UpdatedAt          *string `json:"updated_at"`
+}
+
 type PublicAlarmSelect struct {
   AlarmName    string     `json:"alarm_name"`
   AlarmType    string     `json:"alarm_type"`
@@ -52,6 +124,7 @@ type PublicCameraSelect struct {
   Healthy       bool   `json:"healthy"`
   Id            int64  `json:"id"`
   IpAddress     string `json:"ip_address"`
+  IsRegistered  bool   `json:"is_registered"`
   LastCheckedAt string `json:"last_checked_at"`
   Password      string `json:"password"`
   UpdatedAt     string `json:"updated_at"`
@@ -65,6 +138,7 @@ type PublicCameraInsert struct {
   Healthy       *bool   `json:"healthy"`
   Id            *int64  `json:"id"`
   IpAddress     string  `json:"ip_address"`
+  IsRegistered  *bool   `json:"is_registered"`
   LastCheckedAt *string `json:"last_checked_at"`
   Password      string  `json:"password"`
   UpdatedAt     *string `json:"updated_at"`
@@ -78,77 +152,9 @@ type PublicCameraUpdate struct {
   Healthy       *bool   `json:"healthy"`
   Id            *int64  `json:"id"`
   IpAddress     *string `json:"ip_address"`
+  IsRegistered  *bool   `json:"is_registered"`
   LastCheckedAt *string `json:"last_checked_at"`
   Password      *string `json:"password"`
   UpdatedAt     *string `json:"updated_at"`
   Username      *string `json:"username"`
-}
-
-type PublicBridgeSelect struct {
-  BridgeName    string `json:"bridge_name"`
-  BridgeUuid    string `json:"bridge_uuid"`
-  CreatedAt     string `json:"created_at"`
-  Healthy       bool   `json:"healthy"`
-  Id            int64  `json:"id"`
-  LastCheckedAt string `json:"last_checked_at"`
-  SiteId        *int64 `json:"site_id"`
-  UpdatedAt     string `json:"updated_at"`
-}
-
-type PublicBridgeInsert struct {
-  BridgeName    string  `json:"bridge_name"`
-  BridgeUuid    string  `json:"bridge_uuid"`
-  CreatedAt     *string `json:"created_at"`
-  Healthy       *bool   `json:"healthy"`
-  Id            *int64  `json:"id"`
-  LastCheckedAt *string `json:"last_checked_at"`
-  SiteId        *int64  `json:"site_id"`
-  UpdatedAt     *string `json:"updated_at"`
-}
-
-type PublicBridgeUpdate struct {
-  BridgeName    *string `json:"bridge_name"`
-  BridgeUuid    *string `json:"bridge_uuid"`
-  CreatedAt     *string `json:"created_at"`
-  Healthy       *bool   `json:"healthy"`
-  Id            *int64  `json:"id"`
-  LastCheckedAt *string `json:"last_checked_at"`
-  SiteId        *int64  `json:"site_id"`
-  UpdatedAt     *string `json:"updated_at"`
-}
-
-type PublicSiteSelect struct {
-  ArmStatus          string  `json:"arm_status"`
-  ArmStatusChangedAt string  `json:"arm_status_changed_at"`
-  ContactName        *string `json:"contact_name"`
-  ContactPhone       *string `json:"contact_phone"`
-  CreatedAt          string  `json:"created_at"`
-  Id                 int64   `json:"id"`
-  LogoUrl            *string `json:"logo_url"`
-  SiteName           string  `json:"site_name"`
-  UpdatedAt          string  `json:"updated_at"`
-}
-
-type PublicSiteInsert struct {
-  ArmStatus          *string `json:"arm_status"`
-  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
-  ContactName        *string `json:"contact_name"`
-  ContactPhone       *string `json:"contact_phone"`
-  CreatedAt          *string `json:"created_at"`
-  Id                 *int64  `json:"id"`
-  LogoUrl            *string `json:"logo_url"`
-  SiteName           string  `json:"site_name"`
-  UpdatedAt          *string `json:"updated_at"`
-}
-
-type PublicSiteUpdate struct {
-  ArmStatus          *string `json:"arm_status"`
-  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
-  ContactName        *string `json:"contact_name"`
-  ContactPhone       *string `json:"contact_phone"`
-  CreatedAt          *string `json:"created_at"`
-  Id                 *int64  `json:"id"`
-  LogoUrl            *string `json:"logo_url"`
-  SiteName           *string `json:"site_name"`
-  UpdatedAt          *string `json:"updated_at"`
 }

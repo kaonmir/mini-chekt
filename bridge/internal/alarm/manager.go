@@ -1,17 +1,20 @@
 package parser
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/kaonmir/bridge/internal/alarm/smtp"
 	"github.com/kaonmir/bridge/internal/config"
 	"github.com/kaonmir/bridge/internal/logger"
+	"github.com/kaonmir/bridge/internal/manager/initializer"
 	smtpServer "github.com/kaonmir/bridge/internal/smtp"
+	"github.com/kaonmir/bridge/internal/supabase"
 	"github.com/kaonmir/bridge/internal/supabase/database"
-	"github.com/supabase-community/supabase-go"
+	storage "github.com/supabase-community/storage-go"
 )
-
-const BROADCAST_CHANNEL = "alarms"
 
 // Manager handles alarm events from multiple protocols (SMTP, HTTP)
 type Manager struct {
@@ -20,14 +23,15 @@ type Manager struct {
 	cancelFunc context.CancelFunc
 	config     *config.Config
 
-	supabase *supabase.Client
+	supabase *supabase.Supabase
 	parsers  map[string][]Parser // [protocol][parser]
 
-	smtpChan chan smtpServer.Mail
+	smtpChan    chan smtpServer.Mail
+	initializer *initializer.Initializer
 }
 
 // New creates a new AlarmManager
-func New(logger *logger.Logger, smtpChan chan smtpServer.Mail, cfg *config.Config, supabase *supabase.Client) *Manager {
+func New(logger *logger.Logger, smtpChan chan smtpServer.Mail, cfg *config.Config, supabase *supabase.Supabase, initializer *initializer.Initializer) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	parsers := map[string][]Parser{
@@ -37,13 +41,14 @@ func New(logger *logger.Logger, smtpChan chan smtpServer.Mail, cfg *config.Confi
 	}
 
 	return &Manager{
-		logger:     logger,
-		smtpChan:   smtpChan,
-		ctx:        ctx,
-		cancelFunc: cancel,
-		config:     cfg,
-		parsers:    parsers,
-		supabase:   supabase,
+		logger:      logger,
+		smtpChan:    smtpChan,
+		ctx:         ctx,
+		cancelFunc:  cancel,
+		config:      cfg,
+		parsers:     parsers,
+		supabase:    supabase,
+		initializer: initializer,
 	}
 }
 
@@ -58,6 +63,71 @@ func (m *Manager) Start() {
 func (m *Manager) Stop() {
 	m.logger.Log(logger.Info, "Stopping AlarmManager")
 	m.cancelFunc()
+}
+
+// createSampleTestFile creates a sample test file content for alarm events
+func (m *Manager) createSampleTestFile(event *database.PublicAlarmInsert) string {
+	content := fmt.Sprintf(`# Alarm Test File
+Generated at: %s
+Site ID: %d
+Alarm Name: %s
+Alarm Type: %s
+
+This is a sample test file generated when an alarm was detected.
+The alarm event has been processed and stored in the database.
+
+Event Details:
+- Timestamp: %s
+- Site ID: %d
+- Alarm Name: %s
+- Alarm Type: %s
+- Bridge ID: %d
+- Camera ID: %d
+
+This file serves as a test artifact to verify that alarm detection
+and file upload functionality is working correctly.
+`,
+		time.Now().Format("2006-01-02 15:04:05"),
+		event.SiteId,
+		event.AlarmName,
+		event.AlarmType,
+		time.Now().Format("2006-01-02 15:04:05"),
+		event.SiteId,
+		event.AlarmName,
+		event.AlarmType,
+		event.BridgeId,
+		event.CameraId,
+	)
+
+	return content
+}
+
+// uploadSampleFileToBucket uploads a sample test file to Supabase storage bucket
+func (m *Manager) uploadSampleFileToBucket(event *database.PublicAlarmInsert) error {
+	// Create sample file content
+	fileContent := m.createSampleTestFile(event)
+
+	// Generate unique filename
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	filename := fmt.Sprintf("alarm_test_%s_%d.txt", timestamp, event.SiteId)
+
+	// Convert string content to bytes
+	contentBytes := []byte(fileContent)
+	contentType := "text/plain"
+	upsert := false
+
+	// Upload to alarm-snapshots bucket
+	_, err := m.supabase.Client.Storage.UploadFile("alarm-snapshots", filename, bytes.NewReader(contentBytes), storage.FileOptions{
+		ContentType: &contentType,
+		Upsert:      &upsert,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to upload sample file to bucket: %w", err)
+	}
+
+	m.logger.Log(logger.Info, "Successfully uploaded sample test file: %s", filename)
+	return nil
 }
 
 // processEvents processes incoming events from multiple protocols
@@ -89,17 +159,24 @@ func (m *Manager) processEvents() {
 					continue
 				}
 				if event != nil {
-					// Send the parsed event to server
-					event.SiteId = 1 // TODO: Fix this
+					// Set site ID from initializer
+					event.SiteId = m.initializer.SiteId
+
+					// Upload sample test file to Supabase bucket
+					err = m.uploadSampleFileToBucket(event)
+					if err != nil {
+						m.logger.Log(logger.Error, "Failed to upload sample test file: %v", err)
+						// Continue processing even if file upload fails
+					} else {
+						m.logger.Log(logger.Info, "Successfully uploaded sample test file")
+					}
 
 					// insert db and broadcast
-					_, err = m.supabase.From("alarms").Insert(event, true, "public", "public", "public").ExecuteTo(&database.PublicAlarmInsert{})
+					_, err = m.supabase.Client.From("alarm").Insert(event, false, "public", "public", "public").ExecuteTo(&database.PublicAlarmInsert{})
 					if err != nil {
 						m.logger.Log(logger.Error, "Failed to insert alarm event into database: %v", err)
 						continue
 					}
-
-					m.supabase.From("alarm").Insert(event, false, "public", "public", "public").Execute()
 				}
 			} else {
 				m.logger.Log(logger.Info, "Event is not an alarm event, skipping")
