@@ -26,6 +26,7 @@ export type Database = {
           last_alarm_at: string
           read_at: string | null
           site_id: number
+          snapshot_urls: string[] | null
           updated_at: string
         }
         Insert: {
@@ -39,6 +40,7 @@ export type Database = {
           last_alarm_at?: string
           read_at?: string | null
           site_id: number
+          snapshot_urls?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -52,6 +54,7 @@ export type Database = {
           last_alarm_at?: string
           read_at?: string | null
           site_id?: number
+          snapshot_urls?: string[] | null
           updated_at?: string
         }
         Relationships: [
@@ -80,30 +83,36 @@ export type Database = {
       }
       bridge: {
         Row: {
+          access_token: string | null
           bridge_name: string
+          bridge_uuid: string
           created_at: string
           healthy: boolean
           id: number
           last_checked_at: string
-          site_id: number
+          site_id: number | null
           updated_at: string
         }
         Insert: {
+          access_token?: string | null
           bridge_name: string
+          bridge_uuid: string
           created_at?: string
           healthy?: boolean
           id?: never
           last_checked_at?: string
-          site_id: number
+          site_id?: number | null
           updated_at?: string
         }
         Update: {
+          access_token?: string | null
           bridge_name?: string
+          bridge_uuid?: string
           created_at?: string
           healthy?: boolean
           id?: never
           last_checked_at?: string
-          site_id?: number
+          site_id?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -124,6 +133,7 @@ export type Database = {
           healthy: boolean
           id: number
           ip_address: string
+          is_registered: boolean
           last_checked_at: string
           password: string
           updated_at: string
@@ -136,6 +146,7 @@ export type Database = {
           healthy?: boolean
           id?: never
           ip_address: string
+          is_registered?: boolean
           last_checked_at?: string
           password: string
           updated_at?: string
@@ -148,6 +159,7 @@ export type Database = {
           healthy?: boolean
           id?: never
           ip_address?: string
+          is_registered?: boolean
           last_checked_at?: string
           password?: string
           updated_at?: string

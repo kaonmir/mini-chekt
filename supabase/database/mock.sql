@@ -7,17 +7,17 @@ INSERT INTO site (site_name, contact_name, contact_phone, logo_url, arm_status, 
 ('Daejeon Research Center', 'Jung Hae-won', '+82-42-3333-4444', null, 'disarm', '2024-01-14 22:00:00+09');
 
 -- Mock data for bridge table
-INSERT INTO bridge (site_id, bridge_name, healthy, last_checked_at) VALUES
-(1, 'Main Gateway Bridge', true, '2024-01-15 10:30:00+09'),
-(1, 'Backup Bridge', true, '2024-01-15 10:30:00+09'),
-(2, 'Harbor Bridge 1', true, '2024-01-15 09:45:00+09'),
-(2, 'Harbor Bridge 2', false, '2024-01-15 09:45:00+09'),
-(3, 'Terminal Bridge A', true, '2024-01-15 07:20:00+09'),
-(3, 'Terminal Bridge B', true, '2024-01-15 07:20:00+09'),
-(4, 'Factory Bridge North', true, '2024-01-15 09:00:00+09'),
-(4, 'Factory Bridge South', true, '2024-01-15 09:00:00+09'),
-(5, 'Research Bridge Alpha', true, '2024-01-15 08:30:00+09'),
-(5, 'Research Bridge Beta', false, '2024-01-15 08:30:00+09');
+INSERT INTO bridge (bridge_uuid, site_id, bridge_name, healthy, last_checked_at) VALUES
+('550e8400-e29b-41d4-a716-446655440001', 1, 'Main Gateway Bridge', true, '2024-01-15 10:30:00+09'),
+('550e8400-e29b-41d4-a716-446655440002', 1, 'Backup Bridge', true, '2024-01-15 10:30:00+09'),
+('550e8400-e29b-41d4-a716-446655440003', 2, 'Harbor Bridge 1', true, '2024-01-15 09:45:00+09'),
+('550e8400-e29b-41d4-a716-446655440004', 2, 'Harbor Bridge 2', false, '2024-01-15 09:45:00+09'),
+('550e8400-e29b-41d4-a716-446655440005', 3, 'Terminal Bridge A', true, '2024-01-15 07:20:00+09'),
+('550e8400-e29b-41d4-a716-446655440006', 3, 'Terminal Bridge B', true, '2024-01-15 07:20:00+09'),
+('550e8400-e29b-41d4-a716-446655440007', 4, 'Factory Bridge North', true, '2024-01-15 09:00:00+09'),
+('550e8400-e29b-41d4-a716-446655440008', 4, 'Factory Bridge South', true, '2024-01-15 09:00:00+09'),
+('550e8400-e29b-41d4-a716-446655440009', 5, 'Research Bridge Alpha', true, '2024-01-15 08:30:00+09'),
+('550e8400-e29b-41d4-a716-446655440010', 5, 'Research Bridge Beta', false, '2024-01-15 08:30:00+09');
 
 -- Mock data for camera table
 INSERT INTO camera (bridge_id, camera_name, ip_address, username, password, healthy, last_checked_at) VALUES
