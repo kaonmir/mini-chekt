@@ -10,7 +10,7 @@ async function getSite(id: string): Promise<Site | null> {
   const { data, error } = await supabase
     .from("site")
     .select("*")
-    .eq("id", id)
+    .eq("id", parseInt(id))
     .single();
 
   if (error || !data) {

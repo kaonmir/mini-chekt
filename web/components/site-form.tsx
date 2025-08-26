@@ -52,21 +52,10 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
       const contactPhoneInput = form.querySelector(
         'input[name="contact_phone"]'
       ) as HTMLInputElement;
-      const latitudeInput = form.querySelector(
-        'input[name="latitude"]'
-      ) as HTMLInputElement;
-      const longitudeInput = form.querySelector(
-        'input[name="longitude"]'
-      ) as HTMLInputElement;
-
       const siteData: InsertTable<"site"> | UpdateTable<"site"> = {
         site_name: siteNameInput.value,
         contact_name: contactNameInput.value || null,
         contact_phone: contactPhoneInput.value || null,
-        latitude: latitudeInput.value ? parseFloat(latitudeInput.value) : null,
-        longitude: longitudeInput.value
-          ? parseFloat(longitudeInput.value)
-          : null,
       };
 
       if (!siteData.site_name) {
@@ -94,7 +83,7 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
       if (result.error) {
         setError(result.error.message);
       } else {
-        router.push("/sites");
+        router.push(`/sites/${result.data.id}`);
         router.refresh();
       }
     } catch (err) {
@@ -153,31 +142,6 @@ export default function SiteForm({ mode, initialData, siteId }: SiteFormProps) {
               placeholder="Enter contact phone number"
               defaultValue={initialData?.contact_phone || ""}
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="latitude">Latitude</Label>
-              <Input
-                id="latitude"
-                name="latitude"
-                type="number"
-                step="any"
-                placeholder="Enter latitude"
-                defaultValue={initialData?.latitude?.toString() || ""}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="longitude">Longitude</Label>
-              <Input
-                id="longitude"
-                name="longitude"
-                type="number"
-                step="any"
-                placeholder="Enter longitude"
-                defaultValue={initialData?.longitude?.toString() || ""}
-              />
-            </div>
           </div>
 
           <div className="flex gap-4 pt-4">

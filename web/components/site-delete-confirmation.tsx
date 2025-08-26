@@ -101,12 +101,9 @@ export default function SiteDeleteConfirmation({
                 <span className="font-medium">Phone:</span> {site.contact_phone}
               </p>
             )}
-            {site.latitude && site.longitude && (
-              <p>
-                <span className="font-medium">Location:</span>{" "}
-                {site.latitude.toFixed(4)}, {site.longitude.toFixed(4)}
-              </p>
-            )}
+            <p>
+              <span className="font-medium">Status:</span> {site.arm_status}
+            </p>
           </div>
         </div>
 

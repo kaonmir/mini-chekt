@@ -52,11 +52,9 @@ export function SiteList() {
                   Contact: {site.contact_name}
                 </p>
               )}
-              {site.latitude && site.longitude && (
-                <p className="text-xs text-gray-500">
-                  Location: {site.latitude}, {site.longitude}
-                </p>
-              )}
+              <p className="text-xs text-gray-500">
+                Status: {site.arm_status}
+              </p>
             </li>
           ))}
         </ul>

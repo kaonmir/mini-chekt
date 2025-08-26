@@ -242,12 +242,31 @@ export default async function SiteDetailPage({ params }: PageProps) {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Status
+                          Arm Status
                         </p>
                         <Badge variant="default" className="mt-1">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           {site.arm_status}
                         </Badge>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Created
+                        </p>
+                        <p className="text-sm">
+                          {new Date(site.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Last Updated
+                        </p>
+                        <p className="text-sm">
+                          {new Date(site.updated_at).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
 
@@ -272,11 +291,13 @@ export default async function SiteDetailPage({ params }: PageProps) {
                     )}
 
                     <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">
-                        Status:
+                        Last Updated:
                       </span>
-                      <span className="text-sm">{site.arm_status}</span>
+                      <span className="text-sm">
+                        {new Date(site.updated_at).toLocaleDateString()}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>

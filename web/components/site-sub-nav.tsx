@@ -11,7 +11,16 @@ import { usePathname } from "next/navigation";
 import { Site } from "@/lib/database";
 import { useEffect } from "react";
 
-interface SiteWithUnreadCount extends Site {
+interface SiteWithUnreadCount {
+  id: number;
+  site_name: string;
+  arm_status: string;
+  arm_status_changed_at: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  created_at: string;
+  logo_url: string | null;
+  updated_at: string;
   unread_alarms: number;
 }
 
@@ -65,7 +74,7 @@ export default function SiteSubNav() {
     fetchSites();
   }, []);
 
-  const isActiveSite = (siteId: string) => {
+  const isActiveSite = (siteId: number) => {
     return pathname.startsWith(`/sites/${siteId}`);
   };
 
@@ -141,7 +150,7 @@ export default function SiteSubNav() {
               <div
                 className={`group relative flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
                   isActiveSite(site.id)
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm border-l-4 border-l-primary-foreground"
                     : "hover:bg-muted"
                 }`}
               >
