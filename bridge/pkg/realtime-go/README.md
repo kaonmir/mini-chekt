@@ -174,6 +174,117 @@ client, err := realtimego.NewClient("https://your-project.supabase.co", "your-an
 )
 ```
 
+## Broadcasting from Go Client
+
+You can now send broadcast events directly from your Go client:
+
+### Sending Broadcast Messages
+
+```go
+// Method 1: Send broadcast using client directly
+err := client.SendBroadcast("notifications", "alert", map[string]interface{}{
+    "type":    "system_alert",
+    "message": "System maintenance in 5 minutes",
+    "level":   "warning",
+})
+if err != nil {
+    log.Printf("Failed to send broadcast: %v", err)
+}
+
+// Method 2: Create a broadcast channel and send messages
+broadcastChannel, err := client.CreateBroadcastChannel("notifications")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Send multiple messages through the same channel
+err = broadcastChannel.SendBroadcast("user_joined", map[string]interface{}{
+    "user_id": "123",
+    "username": "john_doe",
+})
+if err != nil {
+    log.Printf("Failed to send broadcast: %v", err)
+}
+
+err = broadcastChannel.SendBroadcast("game_update", map[string]interface{}{
+    "game_id": "456",
+    "score":   1500,
+    "status":  "completed",
+})
+if err != nil {
+    log.Printf("Failed to send broadcast: %v", err)
+}
+```
+
+### Complete Example: Sender and Receiver
+
+```go
+package main
+
+import (
+    "log"
+    "time"
+    realtimego "github.com/kaonmir/bridge/pkg/realtime-go"
+)
+
+func main() {
+    // Create client
+    client, err := realtimego.NewClient("https://your-project.supabase.co", "your-anon-key")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Connect
+    err = client.Connect()
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Disconnect()
+
+    // Subscribe to broadcast channel
+    broadcastChannel, err := client.Channel(
+        realtimego.WithBroadcast("notifications"),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Set up broadcast handler
+    broadcastChannel.OnBroadcast = func(msg realtimego.Message) {
+        log.Printf("Broadcast received: %+v", msg)
+
+        if payload, ok := msg.Payload.(map[string]interface{}); ok {
+            if event, exists := payload["event"]; exists {
+                log.Printf("Event: %s", event)
+            }
+            if data, exists := payload["payload"]; exists {
+                log.Printf("Data: %+v", data)
+            }
+        }
+    }
+
+    // Subscribe
+    err = broadcastChannel.Subscribe()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Send a broadcast message
+    time.Sleep(2 * time.Second) // Wait for subscription to be ready
+
+    err = client.SendBroadcast("notifications", "test_message", map[string]interface{}{
+        "message": "Hello from Go client!",
+        "timestamp": time.Now().Unix(),
+    })
+    if err != nil {
+        log.Printf("Failed to send broadcast: %v", err)
+    }
+
+    // Keep connection alive
+    select {}
+}
+```
+
 ## Broadcasting from Supabase
 
 To send broadcast events from your Supabase project, you can use the `pg_notify` function in PostgreSQL functions or Edge Functions:

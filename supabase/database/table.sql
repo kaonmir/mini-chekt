@@ -69,3 +69,20 @@ CREATE TABLE IF NOT EXISTS alarm (
   FOREIGN KEY (bridge_id) REFERENCES bridge(id),
   FOREIGN KEY (camera_id) REFERENCES camera(id)
 );
+
+DROP TABLE IF EXISTS response CASCADE;
+CREATE TABLE IF NOT EXISTS response (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  
+  bridge_id bigint NOT NULL,
+  request_id text NOT NULL,
+  requester_id uuid NOT NULL,
+
+  request_path text NOT NULL,
+  response_body jsonb,
+
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+
+  FOREIGN KEY (bridge_id) REFERENCES bridge(id)
+);

@@ -138,3 +138,17 @@ func (ch *Channel) setDefaultMessageHandlers() {
 		}
 	}
 }
+
+func (ch *Channel) Send(event string, payload interface{}) error {
+	msg := Message{
+		Topic: ch.topic,
+		Event: EVENT_BROADCAST,
+		Payload: map[string]interface{}{
+			"event":   event,
+			"payload": payload,
+			"type":    "broadcast",
+		},
+	}
+
+	return ch.client.socket.push(msg)
+}

@@ -12,6 +12,7 @@ ALTER TABLE site ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bridge ENABLE ROW LEVEL SECURITY;
 ALTER TABLE camera ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alarm ENABLE ROW LEVEL SECURITY;
+ALTER TABLE response ENABLE ROW LEVEL SECURITY;
 
 -- Site table policies
 DROP POLICY IF EXISTS "Allow authenticated users to view sites" ON site;
@@ -129,6 +130,36 @@ CREATE POLICY "Allow authenticated users to update alarms"
 DROP POLICY IF EXISTS "Allow authenticated users to delete alarms" ON alarm;
 CREATE POLICY "Allow authenticated users to delete alarms"
   ON alarm
+  FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Response table policies
+DROP POLICY IF EXISTS "Allow authenticated users to view responses" ON response;
+CREATE POLICY "Allow authenticated users to view responses"
+  ON response
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Allow authenticated users to insert responses" ON response;
+CREATE POLICY "Allow authenticated users to insert responses"
+  ON response
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated users to update responses" ON response;
+CREATE POLICY "Allow authenticated users to update responses"
+  ON response
+  FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated users to delete responses" ON response;
+CREATE POLICY "Allow authenticated users to delete responses"
+  ON response
   FOR DELETE
   TO authenticated
   USING (true);

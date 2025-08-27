@@ -10,10 +10,10 @@ import (
 
 // Subscription manages Supabase realtime subscriptions
 type Subscription struct {
-	supabase         *supabase.Supabase
-	log              *logger.Logger
-	BridgeId         int64
-	broadcastChannel *realtimego.Channel
+	supabase *supabase.Supabase
+	log      *logger.Logger
+	BridgeId int64
+	ch       *realtimego.Channel
 }
 
 // NewSubscription creates a new subscription manager
@@ -27,25 +27,21 @@ func NewSubscription(supabase *supabase.Supabase, log *logger.Logger, bridgeId i
 
 // Start sets up all subscriptions
 func (s *Subscription) Start() error {
-	broadcastChannel, err := s.supabase.Realtime.Channel(
+	ch, err := s.supabase.Realtime.Channel(
 		realtimego.WithBroadcast("bridge-" + fmt.Sprintf("%d", s.BridgeId)),
 	)
 	if err != nil {
 		return err
 	}
 
-	broadcastChannel.OnBroadcast = func(m realtimego.Message) {
-		payload := m.Payload.(map[string]interface{})
+	ch.OnBroadcast = s.onBroadcast
 
-		s.log.Log(logger.Info, "Alarm received: %v", payload)
-	}
-
-	err = broadcastChannel.Subscribe()
+	err = ch.Subscribe()
 	if err != nil {
 		return err
 	}
 
-	s.broadcastChannel = broadcastChannel
+	s.ch = ch
 
 	s.log.Log(logger.Info, "Successfully subscribed to alarm table")
 	return nil
@@ -53,8 +49,8 @@ func (s *Subscription) Start() error {
 }
 
 func (s *Subscription) Stop() error {
-	if s.broadcastChannel != nil {
-		s.broadcastChannel.Unsubscribe()
+	if s.ch != nil {
+		s.ch.Unsubscribe()
 	}
 	return nil
 }

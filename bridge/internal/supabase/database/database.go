@@ -159,41 +159,35 @@ type PublicAlarmUpdate struct {
   UpdatedAt    *string    `json:"updated_at"`
 }
 
-type PublicRequestSelect struct {
+type PublicResponseSelect struct {
   BridgeId     int64       `json:"bridge_id"`
   CreatedAt    string      `json:"created_at"`
-  ErrorMessage *string     `json:"error_message"`
   Id           int64       `json:"id"`
-  ProcessedAt  *string     `json:"processed_at"`
-  RequestBody  interface{} `json:"request_body"`
+  RequestId    string      `json:"request_id"`
   RequestPath  string      `json:"request_path"`
+  RequesterId  string      `json:"requester_id"`
   ResponseBody interface{} `json:"response_body"`
-  Status       string      `json:"status"`
   UpdatedAt    string      `json:"updated_at"`
 }
 
-type PublicRequestInsert struct {
+type PublicResponseInsert struct {
   BridgeId     int64       `json:"bridge_id"`
   CreatedAt    *string     `json:"created_at"`
-  ErrorMessage *string     `json:"error_message"`
   Id           *int64      `json:"id"`
-  ProcessedAt  *string     `json:"processed_at"`
-  RequestBody  interface{} `json:"request_body"`
+  RequestId    string      `json:"request_id"`
   RequestPath  string      `json:"request_path"`
+  RequesterId  string      `json:"requester_id"`
   ResponseBody interface{} `json:"response_body"`
-  Status       *string     `json:"status"`
   UpdatedAt    *string     `json:"updated_at"`
 }
 
-type PublicRequestUpdate struct {
+type PublicResponseUpdate struct {
   BridgeId     *int64      `json:"bridge_id"`
   CreatedAt    *string     `json:"created_at"`
-  ErrorMessage *string     `json:"error_message"`
   Id           *int64      `json:"id"`
-  ProcessedAt  *string     `json:"processed_at"`
-  RequestBody  interface{} `json:"request_body"`
+  RequestId    *string     `json:"request_id"`
   RequestPath  *string     `json:"request_path"`
+  RequesterId  *string     `json:"requester_id"`
   ResponseBody interface{} `json:"response_body"`
-  Status       *string     `json:"status"`
   UpdatedAt    *string     `json:"updated_at"`
 }
