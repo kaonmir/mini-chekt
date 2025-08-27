@@ -6,13 +6,13 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/kaonmir/bridge/internal/config"
-	realtimego "github.com/overseedio/realtime-go"
-	"github.com/supabase-community/supabase-go"
+	realtimego "github.com/kaonmir/bridge/pkg/realtime-go"
+	supabase "github.com/supabase-community/supabase-go"
 )
 
 type Supabase struct {
-	Client         *supabase.Client
-	RealtimeClient *realtimego.Client
+	Client   *supabase.Client
+	Realtime *realtimego.Client
 }
 
 // NewSupabaseClient creates a new Supabase client with proper configuration
@@ -52,7 +52,7 @@ func NewSupabaseClient(cfg *config.Config) (*Supabase, error) {
 	}
 
 	return &Supabase{
-		Client:         client,
-		RealtimeClient: realtimeClient,
+		Client:   client,
+		Realtime: realtimeClient,
 	}, nil
 }

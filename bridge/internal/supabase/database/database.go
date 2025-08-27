@@ -1,5 +1,41 @@
 package database
 
+type PublicSiteSelect struct {
+  ArmStatus          string  `json:"arm_status"`
+  ArmStatusChangedAt string  `json:"arm_status_changed_at"`
+  ContactName        *string `json:"contact_name"`
+  ContactPhone       *string `json:"contact_phone"`
+  CreatedAt          string  `json:"created_at"`
+  Id                 int64   `json:"id"`
+  LogoUrl            *string `json:"logo_url"`
+  SiteName           string  `json:"site_name"`
+  UpdatedAt          string  `json:"updated_at"`
+}
+
+type PublicSiteInsert struct {
+  ArmStatus          *string `json:"arm_status"`
+  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
+  ContactName        *string `json:"contact_name"`
+  ContactPhone       *string `json:"contact_phone"`
+  CreatedAt          *string `json:"created_at"`
+  Id                 *int64  `json:"id"`
+  LogoUrl            *string `json:"logo_url"`
+  SiteName           string  `json:"site_name"`
+  UpdatedAt          *string `json:"updated_at"`
+}
+
+type PublicSiteUpdate struct {
+  ArmStatus          *string `json:"arm_status"`
+  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
+  ContactName        *string `json:"contact_name"`
+  ContactPhone       *string `json:"contact_phone"`
+  CreatedAt          *string `json:"created_at"`
+  Id                 *int64  `json:"id"`
+  LogoUrl            *string `json:"logo_url"`
+  SiteName           *string `json:"site_name"`
+  UpdatedAt          *string `json:"updated_at"`
+}
+
 type PublicBridgeSelect struct {
   AccessToken   *string `json:"access_token"`
   BridgeName    string  `json:"bridge_name"`
@@ -36,40 +72,46 @@ type PublicBridgeUpdate struct {
   UpdatedAt     *string `json:"updated_at"`
 }
 
-type PublicSiteSelect struct {
-  ArmStatus          string  `json:"arm_status"`
-  ArmStatusChangedAt string  `json:"arm_status_changed_at"`
-  ContactName        *string `json:"contact_name"`
-  ContactPhone       *string `json:"contact_phone"`
-  CreatedAt          string  `json:"created_at"`
-  Id                 int64   `json:"id"`
-  LogoUrl            *string `json:"logo_url"`
-  SiteName           string  `json:"site_name"`
-  UpdatedAt          string  `json:"updated_at"`
+type PublicCameraSelect struct {
+  BridgeId      int64  `json:"bridge_id"`
+  CameraName    string `json:"camera_name"`
+  CreatedAt     string `json:"created_at"`
+  Healthy       bool   `json:"healthy"`
+  Id            int64  `json:"id"`
+  IpAddress     string `json:"ip_address"`
+  IsRegistered  bool   `json:"is_registered"`
+  LastCheckedAt string `json:"last_checked_at"`
+  Password      string `json:"password"`
+  UpdatedAt     string `json:"updated_at"`
+  Username      string `json:"username"`
 }
 
-type PublicSiteInsert struct {
-  ArmStatus          *string `json:"arm_status"`
-  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
-  ContactName        *string `json:"contact_name"`
-  ContactPhone       *string `json:"contact_phone"`
-  CreatedAt          *string `json:"created_at"`
-  Id                 *int64  `json:"id"`
-  LogoUrl            *string `json:"logo_url"`
-  SiteName           string  `json:"site_name"`
-  UpdatedAt          *string `json:"updated_at"`
+type PublicCameraInsert struct {
+  BridgeId      int64   `json:"bridge_id"`
+  CameraName    string  `json:"camera_name"`
+  CreatedAt     *string `json:"created_at"`
+  Healthy       *bool   `json:"healthy"`
+  Id            *int64  `json:"id"`
+  IpAddress     string  `json:"ip_address"`
+  IsRegistered  *bool   `json:"is_registered"`
+  LastCheckedAt *string `json:"last_checked_at"`
+  Password      string  `json:"password"`
+  UpdatedAt     *string `json:"updated_at"`
+  Username      string  `json:"username"`
 }
 
-type PublicSiteUpdate struct {
-  ArmStatus          *string `json:"arm_status"`
-  ArmStatusChangedAt *string `json:"arm_status_changed_at"`
-  ContactName        *string `json:"contact_name"`
-  ContactPhone       *string `json:"contact_phone"`
-  CreatedAt          *string `json:"created_at"`
-  Id                 *int64  `json:"id"`
-  LogoUrl            *string `json:"logo_url"`
-  SiteName           *string `json:"site_name"`
-  UpdatedAt          *string `json:"updated_at"`
+type PublicCameraUpdate struct {
+  BridgeId      *int64  `json:"bridge_id"`
+  CameraName    *string `json:"camera_name"`
+  CreatedAt     *string `json:"created_at"`
+  Healthy       *bool   `json:"healthy"`
+  Id            *int64  `json:"id"`
+  IpAddress     *string `json:"ip_address"`
+  IsRegistered  *bool   `json:"is_registered"`
+  LastCheckedAt *string `json:"last_checked_at"`
+  Password      *string `json:"password"`
+  UpdatedAt     *string `json:"updated_at"`
+  Username      *string `json:"username"`
 }
 
 type PublicAlarmSelect struct {
@@ -117,44 +159,41 @@ type PublicAlarmUpdate struct {
   UpdatedAt    *string    `json:"updated_at"`
 }
 
-type PublicCameraSelect struct {
-  BridgeId      int64  `json:"bridge_id"`
-  CameraName    string `json:"camera_name"`
-  CreatedAt     string `json:"created_at"`
-  Healthy       bool   `json:"healthy"`
-  Id            int64  `json:"id"`
-  IpAddress     string `json:"ip_address"`
-  IsRegistered  bool   `json:"is_registered"`
-  LastCheckedAt string `json:"last_checked_at"`
-  Password      string `json:"password"`
-  UpdatedAt     string `json:"updated_at"`
-  Username      string `json:"username"`
+type PublicRequestSelect struct {
+  BridgeId     int64       `json:"bridge_id"`
+  CreatedAt    string      `json:"created_at"`
+  ErrorMessage *string     `json:"error_message"`
+  Id           int64       `json:"id"`
+  ProcessedAt  *string     `json:"processed_at"`
+  RequestBody  interface{} `json:"request_body"`
+  RequestPath  string      `json:"request_path"`
+  ResponseBody interface{} `json:"response_body"`
+  Status       string      `json:"status"`
+  UpdatedAt    string      `json:"updated_at"`
 }
 
-type PublicCameraInsert struct {
-  BridgeId      int64   `json:"bridge_id"`
-  CameraName    string  `json:"camera_name"`
-  CreatedAt     *string `json:"created_at"`
-  Healthy       *bool   `json:"healthy"`
-  Id            *int64  `json:"id"`
-  IpAddress     string  `json:"ip_address"`
-  IsRegistered  *bool   `json:"is_registered"`
-  LastCheckedAt *string `json:"last_checked_at"`
-  Password      string  `json:"password"`
-  UpdatedAt     *string `json:"updated_at"`
-  Username      string  `json:"username"`
+type PublicRequestInsert struct {
+  BridgeId     int64       `json:"bridge_id"`
+  CreatedAt    *string     `json:"created_at"`
+  ErrorMessage *string     `json:"error_message"`
+  Id           *int64      `json:"id"`
+  ProcessedAt  *string     `json:"processed_at"`
+  RequestBody  interface{} `json:"request_body"`
+  RequestPath  string      `json:"request_path"`
+  ResponseBody interface{} `json:"response_body"`
+  Status       *string     `json:"status"`
+  UpdatedAt    *string     `json:"updated_at"`
 }
 
-type PublicCameraUpdate struct {
-  BridgeId      *int64  `json:"bridge_id"`
-  CameraName    *string `json:"camera_name"`
-  CreatedAt     *string `json:"created_at"`
-  Healthy       *bool   `json:"healthy"`
-  Id            *int64  `json:"id"`
-  IpAddress     *string `json:"ip_address"`
-  IsRegistered  *bool   `json:"is_registered"`
-  LastCheckedAt *string `json:"last_checked_at"`
-  Password      *string `json:"password"`
-  UpdatedAt     *string `json:"updated_at"`
-  Username      *string `json:"username"`
+type PublicRequestUpdate struct {
+  BridgeId     *int64      `json:"bridge_id"`
+  CreatedAt    *string     `json:"created_at"`
+  ErrorMessage *string     `json:"error_message"`
+  Id           *int64      `json:"id"`
+  ProcessedAt  *string     `json:"processed_at"`
+  RequestBody  interface{} `json:"request_body"`
+  RequestPath  *string     `json:"request_path"`
+  ResponseBody interface{} `json:"response_body"`
+  Status       *string     `json:"status"`
+  UpdatedAt    *string     `json:"updated_at"`
 }

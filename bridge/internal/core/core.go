@@ -62,8 +62,8 @@ func New(args []string) (*Core, bool) {
 	// Create alarm manager with SMTP channel
 	alarmManager := alarm.New(log, smtpServer.GetMailChannel(), cfg, supabase, initializer)
 
-	// Create subscription manager
-	subscriptionManager := subscription.NewSubscription(supabase.RealtimeClient, log)
+	// Create subscription manager with bridge ID
+	subscriptionManager := subscription.NewSubscription(supabase, log, initializer.BridgeId)
 
 	pa := &Core{
 		ctx:       ctx,
@@ -92,7 +92,7 @@ func (pa *Core) start() bool {
 	pa.alarmManager.Start()
 
 	// Setup Supabase realtime subscriptions
-	if err := pa.subscription.SetupAllSubscriptions(); err != nil {
+	if err := pa.subscription.Start(); err != nil {
 		pa.logger.Log(logger.Error, "Failed to setup subscriptions: %v", err)
 		return false
 	}
@@ -119,6 +119,12 @@ func (pa *Core) close() {
 	if pa.alarmManager != nil {
 		pa.alarmManager.Stop()
 		pa.logger.Log(logger.Info, "Alarm manager stopped")
+	}
+
+	// Stop subscription manager
+	if pa.subscription != nil {
+		pa.subscription.Stop()
+		pa.logger.Log(logger.Info, "Subscription manager stopped")
 	}
 
 	// Stop SMTP server

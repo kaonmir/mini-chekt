@@ -17,9 +17,10 @@ type Initializer struct {
 	cfg      *config.Config
 	supabase *supabase.Supabase
 
-	SiteId    int64
-	BridgeId  string
-	CameraMap map[string]string // ip: camera_id
+	SiteId     int64
+	BridgeId   int64
+	BridgeUUID string
+	CameraMap  map[string]string // ip: camera_id
 }
 
 // generateRandomToken generates a random 5-character alphanumeric token
@@ -57,12 +58,13 @@ func NewInitializer(log *logger.Logger, cfg *config.Config, supabase *supabase.S
 		if bridgeData.SiteId != nil {
 			log.Log(logger.Info, "Site ID received: %d", *bridgeData.SiteId)
 			return &Initializer{
-				log:       log,
-				cfg:       cfg,
-				supabase:  supabase,
-				SiteId:    *bridgeData.SiteId,
-				BridgeId:  cfg.BridgeUUID,
-				CameraMap: make(map[string]string),
+				log:        log,
+				cfg:        cfg,
+				supabase:   supabase,
+				SiteId:     *bridgeData.SiteId,
+				BridgeId:   bridgeData.Id,
+				BridgeUUID: cfg.BridgeUUID,
+				CameraMap:  make(map[string]string),
 			}
 		}
 
