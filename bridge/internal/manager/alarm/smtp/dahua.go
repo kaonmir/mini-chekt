@@ -129,7 +129,6 @@ func (d *DahuaParser) ParseAlarm(data interface{}) (*database.PublicAlarmInsert,
 		LastAlarmAt: dahuaData.LastAlarmAt,
 		CameraId:    dahuaData.CameraId,
 		BridgeId:    dahuaData.BridgeId,
-		// SiteId will be set by the alarm manager from initializer
 	}
 
 	return event, nil

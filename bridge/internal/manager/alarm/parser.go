@@ -1,4 +1,4 @@
-package parser
+package alarm
 
 import "github.com/kaonmir/bridge/internal/supabase/database"
 

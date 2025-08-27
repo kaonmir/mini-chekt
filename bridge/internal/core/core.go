@@ -8,11 +8,12 @@ import (
 	"syscall"
 	"time"
 
-	alarm "github.com/kaonmir/bridge/internal/alarm"
 	"github.com/kaonmir/bridge/internal/config"
 	"github.com/kaonmir/bridge/internal/logger"
-	"github.com/kaonmir/bridge/internal/manager/initializer"
+	"github.com/kaonmir/bridge/internal/manager/alarm"
+	"github.com/kaonmir/bridge/internal/manager/recorder"
 	"github.com/kaonmir/bridge/internal/manager/subscription"
+	"github.com/kaonmir/bridge/internal/manager/toolbox"
 	"github.com/kaonmir/bridge/internal/smtp"
 	"github.com/kaonmir/bridge/internal/supabase"
 )
@@ -24,11 +25,12 @@ type Core struct {
 	logger    *logger.Logger
 	config    *config.Config
 
-	smtpServer   *smtp.Server
-	supabase     *supabase.Supabase
-	initializer  *initializer.Initializer
-	alarmManager *alarm.Manager
-	subscription *subscription.Subscription
+	smtpServer      *smtp.Server
+	supabase        *supabase.Supabase
+	toolbox         *toolbox.Toolbox
+	alarmManager    *alarm.Manager
+	subscription    *subscription.Subscription
+	recorderManager *recorder.Manager
 }
 
 // Event represents an event to be sent to the server
@@ -57,13 +59,15 @@ func New(args []string) (*Core, bool) {
 		return nil, false
 	}
 
-	initializer := initializer.NewInitializer(log, cfg, supabase)
+	toolbox := toolbox.NewToolbox(log, cfg, supabase)
 
 	// Create alarm manager with SMTP channel
-	alarmManager := alarm.New(log, smtpServer.GetMailChannel(), cfg, supabase, initializer)
+	alarmManager := alarm.New(log, smtpServer.GetMailChannel(), cfg, supabase, toolbox)
+
+	recorderManager := recorder.NewManager(toolbox.Cameras, log)
 
 	// Create subscription manager with bridge ID
-	subscriptionManager := subscription.NewSubscription(supabase, log, initializer.BridgeId)
+	subscriptionManager := subscription.NewSubscription(supabase, log, toolbox.BridgeId, recorderManager)
 
 	pa := &Core{
 		ctx:       ctx,
@@ -71,11 +75,12 @@ func New(args []string) (*Core, bool) {
 		logger:    log,
 		config:    cfg,
 
-		smtpServer:   smtpServer,
-		supabase:     supabase,
-		initializer:  initializer,
-		alarmManager: alarmManager,
-		subscription: subscriptionManager,
+		smtpServer:      smtpServer,
+		supabase:        supabase,
+		toolbox:         toolbox,
+		alarmManager:    alarmManager,
+		subscription:    subscriptionManager,
+		recorderManager: recorderManager,
 	}
 
 	if !pa.start() {
@@ -90,6 +95,9 @@ func (pa *Core) start() bool {
 
 	// Start alarm manager first
 	pa.alarmManager.Start()
+
+	// Start recorder manager
+	pa.recorderManager.StartAll()
 
 	// Setup Supabase realtime subscriptions
 	if err := pa.subscription.Start(); err != nil {
@@ -125,6 +133,12 @@ func (pa *Core) close() {
 	if pa.subscription != nil {
 		pa.subscription.Stop()
 		pa.logger.Log(logger.Info, "Subscription manager stopped")
+	}
+
+	// Stop recorder manager
+	if pa.recorderManager != nil {
+		pa.recorderManager.StopAll()
+		pa.logger.Log(logger.Info, "Recorder manager stopped")
 	}
 
 	// Stop SMTP server

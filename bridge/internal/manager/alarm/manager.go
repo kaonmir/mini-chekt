@@ -1,4 +1,4 @@
-package parser
+package alarm
 
 import (
 	"bytes"
@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kaonmir/bridge/internal/alarm/smtp"
 	"github.com/kaonmir/bridge/internal/config"
 	"github.com/kaonmir/bridge/internal/logger"
-	"github.com/kaonmir/bridge/internal/manager/initializer"
+	"github.com/kaonmir/bridge/internal/manager/alarm/smtp"
+	"github.com/kaonmir/bridge/internal/manager/toolbox"
 	smtpServer "github.com/kaonmir/bridge/internal/smtp"
 	"github.com/kaonmir/bridge/internal/supabase"
 	"github.com/kaonmir/bridge/internal/supabase/database"
@@ -26,12 +26,12 @@ type Manager struct {
 	supabase *supabase.Supabase
 	parsers  map[string][]Parser // [protocol][parser]
 
-	smtpChan    chan smtpServer.Mail
-	initializer *initializer.Initializer
+	smtpChan chan smtpServer.Mail
+	toolbox  *toolbox.Toolbox
 }
 
 // New creates a new AlarmManager
-func New(logger *logger.Logger, smtpChan chan smtpServer.Mail, cfg *config.Config, supabase *supabase.Supabase, initializer *initializer.Initializer) *Manager {
+func New(logger *logger.Logger, smtpChan chan smtpServer.Mail, cfg *config.Config, supabase *supabase.Supabase, toolbox *toolbox.Toolbox) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	parsers := map[string][]Parser{
@@ -41,14 +41,14 @@ func New(logger *logger.Logger, smtpChan chan smtpServer.Mail, cfg *config.Confi
 	}
 
 	return &Manager{
-		logger:      logger,
-		smtpChan:    smtpChan,
-		ctx:         ctx,
-		cancelFunc:  cancel,
-		config:      cfg,
-		parsers:     parsers,
-		supabase:    supabase,
-		initializer: initializer,
+		logger:     logger,
+		smtpChan:   smtpChan,
+		ctx:        ctx,
+		cancelFunc: cancel,
+		config:     cfg,
+		parsers:    parsers,
+		supabase:   supabase,
+		toolbox:    toolbox,
 	}
 }
 
@@ -102,8 +102,8 @@ and file upload functionality is working correctly.
 	return content
 }
 
-// uploadSampleFileToBucket uploads a sample test file to Supabase storage bucket
-func (m *Manager) uploadSampleFileToBucket(event *database.PublicAlarmInsert) error {
+// UploadSampleFileToBucket uploads a sample test file to Supabase storage bucket
+func (m *Manager) UploadSampleFileToBucket(event *database.PublicAlarmInsert) error {
 	// Create sample file content
 	fileContent := m.createSampleTestFile(event)
 
@@ -159,11 +159,10 @@ func (m *Manager) processEvents() {
 					continue
 				}
 				if event != nil {
-					// Set site ID from initializer
-					event.SiteId = m.initializer.SiteId
+					event.SiteId = m.toolbox.SiteId
 
 					// Upload sample test file to Supabase bucket
-					err = m.uploadSampleFileToBucket(event)
+					err = m.UploadSampleFileToBucket(event)
 					if err != nil {
 						m.logger.Log(logger.Error, "Failed to upload sample test file: %v", err)
 						// Continue processing even if file upload fails
