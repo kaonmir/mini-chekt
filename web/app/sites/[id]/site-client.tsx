@@ -414,7 +414,7 @@ export default function SiteClient({
                             {/* Add Camera Button */}
                             <div className="pt-2">
                               <Link
-                                href={`/sites/${site.id}/add-camera?bridgeId=${bridge.id}`}
+                                href={`/sites/${site.id}/bridges/${bridge.id}/cameras/add`}
                               >
                                 <Button
                                   variant="outline"
