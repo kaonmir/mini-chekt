@@ -129,7 +129,7 @@ func (d *DahuaParser) ParseAlarm(data interface{}) (*defs.PublicAlarmInsert, err
 		return nil, fmt.Errorf("missing required field: Alarm Event")
 	}
 
-	d.Log(logger.Info, "Parsed Dahua alarm event: %s from device %s", dahuaData.AlarmName, dahuaData.CameraId)
+	d.Log(logger.Info, "Parsed Dahua alarm event: %s from device %d", dahuaData.AlarmName, dahuaData.CameraId)
 
 	// Convert LegacyType to Event
 	event := &defs.PublicAlarmInsert{
