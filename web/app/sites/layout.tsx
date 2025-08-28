@@ -1,11 +1,22 @@
 import SiteSubNav from "@/components/site-sub-nav";
 import { LogoutButton } from "@/components/logout-button";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-export default function MonitoringLayout({
+export default async function MonitoringLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   return (
     <div className="flex h-screen">
       <SiteSubNav />

@@ -19,7 +19,9 @@ import {
   Settings,
   BarChart3,
   ArrowRight,
+  LogOut,
 } from "lucide-react";
+import { redirect } from "next/navigation";
 
 async function getSiteCount() {
   const supabase = await createClient();
@@ -36,6 +38,15 @@ async function getSiteCount() {
 }
 
 export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const siteCount = await getSiteCount();
 
   return (
@@ -175,6 +186,19 @@ export default async function Home() {
                 </Button>
               </CardContent>
             </Link>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LogOut className="h-5 w-5" />
+                Logout
+              </CardTitle>
+              <CardDescription>Sign out from your account</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LogoutButton />
+            </CardContent>
           </Card>
         </div>
 
