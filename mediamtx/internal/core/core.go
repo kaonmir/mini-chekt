@@ -32,6 +32,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
+	"github.com/bluenviron/mediamtx/internal/servers/smtp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 	"github.com/bluenviron/mediamtx/internal/subscriber"
@@ -96,6 +97,7 @@ type Core struct {
 	hlsServer       *hls.Server
 	webRTCServer    *webrtc.Server
 	srtServer       *srt.Server
+	smtpServer      *smtp.Server
 	api             *api.API
 	confWatcher     *confwatcher.ConfWatcher
 	subscriber      *subscriber.Subscriber
@@ -605,6 +607,19 @@ func (p *Core) createResources(initial bool) error {
 		p.srtServer = i
 	}
 
+	if p.conf.SMTP &&
+		p.smtpServer == nil {
+		i := &smtp.Server{
+			Port:   p.conf.SMTPPort,
+			Parent: p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.smtpServer = i
+	}
+
 	if p.conf.API &&
 		p.api == nil {
 		i := &api.API{
@@ -635,11 +650,9 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	s := &subscriber.Subscriber{
-		// BridgeId:    p.conf.BridgeId,
-		SupabaseURL: p.conf.SupabaseURL,
-		SupabaseKey: p.conf.SupabaseKey,
-		Conf:        p.conf,
-		Parent:      p,
+		Conf:   p.conf,
+		ConfDB: p.confdb,
+		Parent: p,
 	}
 	err = s.Initialize()
 	if err != nil {
@@ -870,6 +883,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager ||
 		closeLogger
 
+	closeSMTPServer := newConf == nil ||
+		newConf.SMTP != p.conf.SMTP ||
+		newConf.SMTPPort != p.conf.SMTPPort ||
+		closeLogger
+
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||
 		newConf.APIAddress != p.conf.APIAddress ||
@@ -887,10 +905,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeHLSServer ||
 		closeWebRTCServer ||
 		closeSRTServer ||
+		closeSMTPServer ||
 		closeLogger
 
 	closeSubscriber := newConf == nil ||
-		newConf.BridgeId != p.conf.BridgeId ||
 		newConf.SupabaseURL != p.conf.SupabaseURL ||
 		newConf.SupabaseKey != p.conf.SupabaseKey ||
 		closeLogger
@@ -919,6 +937,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closeSRTServer && p.srtServer != nil {
 		p.srtServer.Close()
 		p.srtServer = nil
+	}
+
+	if closeSMTPServer && p.smtpServer != nil {
+		p.smtpServer.Close()
+		p.smtpServer = nil
 	}
 
 	if closeWebRTCServer && p.webRTCServer != nil {
