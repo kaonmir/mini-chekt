@@ -24,11 +24,46 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { disconnectBridgeFromSite, deleteCamera } from "./actions";
 
+interface Site {
+  id: number;
+  site_name: string;
+  address?: string;
+  contact_info?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Alarm {
+  id: number;
+  alarm_type: string;
+  alarm_name?: string;
+  last_alarm_at: string;
+}
+
+interface Stats {
+  totalAlarms: number;
+  unreadAlarms: number;
+  criticalAlarms: number;
+}
+
+interface Camera {
+  id: number;
+  camera_name: string;
+  healthy: boolean;
+}
+
+interface Bridge {
+  id: number;
+  bridge_name: string;
+  healthy: boolean;
+  cameras: Camera[];
+}
+
 interface SiteClientProps {
-  site: Record<string, unknown>;
-  alarms: Record<string, unknown>[];
-  stats: Record<string, unknown>;
-  bridgesWithCameras: Record<string, unknown>[];
+  site: Site;
+  alarms: Alarm[];
+  stats: Stats;
+  bridgesWithCameras: Bridge[];
 }
 
 export default function SiteClient({
@@ -355,7 +390,7 @@ export default function SiteClient({
                                 No cameras connected
                               </div>
                             ) : (
-                              bridge.cameras.map((camera: Record<string, unknown>) => (
+                              bridge.cameras.map((camera) => (
                                 <div
                                   key={camera.id}
                                   className="flex items-center justify-between p-2 bg-gray-50 rounded"

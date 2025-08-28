@@ -1,5 +1,4 @@
-// Re-export database types
-export type { Database } from "./supabase/types";
+import type { Database } from "./supabase/types";
 
 // Type-safe table helpers
 export type Table<T extends keyof Database["public"]["Tables"]> =

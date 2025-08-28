@@ -4,10 +4,10 @@ import { UpdateTable } from "@/lib/database";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
     const supabase = await createClient();
 
     // Check if user is authenticated
@@ -44,10 +44,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
     const supabase = await createClient();
 
     // Check if user is authenticated
@@ -69,12 +69,6 @@ export async function PUT(
       contact_name: (formData.get("contact_name") as string) || null,
       contact_phone: (formData.get("contact_phone") as string) || null,
       logo_url: (formData.get("logo_url") as string) || null,
-      latitude: formData.get("latitude")
-        ? parseFloat(formData.get("latitude") as string)
-        : null,
-      longitude: formData.get("longitude")
-        ? parseFloat(formData.get("longitude") as string)
-        : null,
     };
 
     if (!siteData.site_name) {
@@ -106,10 +100,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
     const supabase = await createClient();
 
     // Check if user is authenticated

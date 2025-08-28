@@ -9,9 +9,9 @@ import {
 import SiteClient from "./site-client";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function SiteDetailPage({ params }: PageProps) {

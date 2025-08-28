@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // params is Promise now
 ) {
   try {
-    const { id } = await params;
+    const { id } = await context.params; // await params here
+
     const { username, password } = await request.json();
 
     if (!username || !password) {
@@ -18,7 +18,6 @@ export async function POST(
 
     const supabase = await createClient();
 
-    // Update camera with credentials
     const { data, error } = await supabase
       .from("camera")
       .update({
