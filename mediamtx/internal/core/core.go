@@ -34,6 +34,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
+	"github.com/bluenviron/mediamtx/internal/subscriber"
 )
 
 //go:generate go run ./versiongetter
@@ -97,6 +98,7 @@ type Core struct {
 	srtServer       *srt.Server
 	api             *api.API
 	confWatcher     *confwatcher.ConfWatcher
+	subscriber      *subscriber.Subscriber
 
 	// in
 	chAPIConfigSet chan *conf.Conf
@@ -632,6 +634,19 @@ func (p *Core) createResources(initial bool) error {
 		p.api = i
 	}
 
+	s := &subscriber.Subscriber{
+		// BridgeId:    p.conf.BridgeId,
+		SupabaseURL: p.conf.SupabaseURL,
+		SupabaseKey: p.conf.SupabaseKey,
+		Conf:        p.conf,
+		Parent:      p,
+	}
+	err = s.Initialize()
+	if err != nil {
+		return err
+	}
+	p.subscriber = s
+
 	if initial && p.confPath != "" {
 		cf := &confwatcher.ConfWatcher{FilePath: p.confPath}
 		err = cf.Initialize()
@@ -874,6 +889,12 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeSRTServer ||
 		closeLogger
 
+	closeSubscriber := newConf == nil ||
+		newConf.BridgeId != p.conf.BridgeId ||
+		newConf.SupabaseURL != p.conf.SupabaseURL ||
+		newConf.SupabaseKey != p.conf.SupabaseKey ||
+		closeLogger
+
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
 		p.confWatcher = nil
@@ -885,6 +906,13 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.api = nil
 		} else if !calledByAPI { // avoid a loop
 			p.api.ReloadConf(newConf)
+		}
+	}
+
+	if p.subscriber != nil {
+		if closeSubscriber {
+			p.subscriber.Close()
+			p.subscriber = nil
 		}
 	}
 

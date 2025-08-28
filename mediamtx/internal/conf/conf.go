@@ -162,6 +162,9 @@ type Conf struct {
 	RunOnConnect        string          `json:"runOnConnect"`
 	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
+	// Environment variables
+	SupabaseURL string `json:"supabaseURL"`
+	SupabaseKey string `json:"supabaseKey"`
 
 	// Authentication
 	AuthMethod                AuthMethod                  `json:"authMethod"`
