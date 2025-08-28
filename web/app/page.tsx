@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AuthButton } from "@/components/auth-button";
+import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { hasEnvVars } from "@/lib/utils";
 import Link from "next/link";
@@ -46,7 +47,10 @@ export default async function Home() {
               Chekt Dashboard
             </Link>
           </div>
-          {!hasEnvVars ? null : <AuthButton />}
+          <div className="flex items-center gap-3">
+            {!hasEnvVars ? null : <AuthButton />}
+            {!hasEnvVars ? null : <LogoutButton />}
+          </div>
         </div>
       </nav>
 
