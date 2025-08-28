@@ -19,22 +19,22 @@ INSERT INTO bridge (bridge_uuid, site_id, bridge_name, healthy, last_checked_at)
 ('550e8400-e29b-41d4-a716-446655440009', 5, 'Research Bridge Alpha', true, '2024-01-15 08:30:00+09'),
 ('550e8400-e29b-41d4-a716-446655440010', 5, 'Research Bridge Beta', false, '2024-01-15 08:30:00+09');
 -- Mock data for camera table
-INSERT INTO camera (bridge_id, camera_name, ip_address, username, password, is_registered, healthy, last_checked_at) VALUES
-(1, 'Main Entrance Cam 1', '192.168.1.101', 'admin', 'securepass123', true, true, '2024-01-15 10:30:00+09'),
-(1, 'Main Entrance Cam 2', '192.168.1.102', 'admin', 'securepass123', false, true, '2024-01-15 10:30:00+09'),
-(2, 'Backup Entrance Cam', '192.168.1.201', 'admin', 'securepass123', true, true, '2024-01-15 10:30:00+09'),
-(3, 'Harbor Dock Cam 1', '192.168.2.101', 'harbor_admin', 'harborpass456', false, true, '2024-01-15 09:45:00+09'),
-(3, 'Harbor Dock Cam 2', '192.168.2.102', 'harbor_admin', 'harborpass456', true, true, '2024-01-15 09:45:00+09'),
-(4, 'Harbor Storage Cam', '192.168.2.201', 'harbor_admin', 'harborpass456', true, false, '2024-01-15 09:45:00+09'),
-(5, 'Terminal Check-in Cam', '192.168.3.101', 'airport_admin', 'airportpass789', false, true, '2024-01-15 07:20:00+09'),
-(5, 'Terminal Security Cam', '192.168.3.102', 'airport_admin', 'airportpass789', true, true, '2024-01-15 07:20:00+09'),
-(6, 'Terminal Gate Cam', '192.168.3.201', 'airport_admin', 'airportpass789', true, true, '2024-01-15 07:20:00+09'),
-(7, 'Factory Floor Cam 1', '192.168.4.101', 'factory_admin', 'factorypass321', false, true, '2024-01-15 09:00:00+09'),
-(7, 'Factory Floor Cam 2', '192.168.4.102', 'factory_admin', 'factorypass321', true, true, '2024-01-15 09:00:00+09'),
-(8, 'Factory Warehouse Cam', '192.168.4.201', 'factory_admin', 'factorypass321', false, true, '2024-01-15 09:00:00+09'),
-(9, 'Research Lab Cam 1', '192.168.5.101', 'research_admin', 'researchpass654', true, true, '2024-01-15 08:30:00+09'),
-(9, 'Research Lab Cam 2', '192.168.5.102', 'research_admin', 'researchpass654', false, true, '2024-01-15 08:30:00+09'),
-(10, 'Research Server Cam', '192.168.5.201', 'research_admin', 'researchpass654', true, false, '2024-01-15 08:30:00+09');
+INSERT INTO camera (bridge_id, camera_name, ip_address, source, is_registered, healthy, last_checked_at) VALUES
+(1, 'Main Entrance Cam 1', '192.168.1.101', 'rtsp://192.168.1.101/stream1', true, true, '2024-01-15 10:30:00+09'),
+(1, 'Main Entrance Cam 2', '192.168.1.102', 'rtsp://192.168.1.102/stream1', false, true, '2024-01-15 10:30:00+09'),
+(2, 'Backup Entrance Cam', '192.168.1.201', 'rtsp://192.168.1.201/stream1', true, true, '2024-01-15 10:30:00+09'),
+(3, 'Harbor Dock Cam 1', '192.168.2.101', 'rtsp://192.168.2.101/stream1', false, true, '2024-01-15 09:45:00+09'),
+(3, 'Harbor Dock Cam 2', '192.168.2.102', 'rtsp://192.168.2.102/stream1', true, true, '2024-01-15 09:45:00+09'),
+(4, 'Harbor Storage Cam', '192.168.2.201', 'rtsp://192.168.2.201/stream1', true, false, '2024-01-15 09:45:00+09'),
+(5, 'Terminal Check-in Cam', '192.168.3.101', 'rtsp://192.168.3.101/stream1', false, true, '2024-01-15 07:20:00+09'),
+(5, 'Terminal Security Cam', '192.168.3.102', 'rtsp://192.168.3.102/stream1', true, true, '2024-01-15 07:20:00+09'),
+(6, 'Terminal Gate Cam', '192.168.3.201', 'rtsp://192.168.3.201/stream1', true, true, '2024-01-15 07:20:00+09'),
+(7, 'Factory Floor Cam 1', '192.168.4.101', 'rtsp://192.168.4.101/stream1', false, true, '2024-01-15 09:00:00+09'),
+(7, 'Factory Floor Cam 2', '192.168.4.102', 'rtsp://192.168.4.102/stream1', true, true, '2024-01-15 09:00:00+09'),
+(8, 'Factory Warehouse Cam', '192.168.4.201', 'rtsp://192.168.4.201/stream1', false, true, '2024-01-15 09:00:00+09'),
+(9, 'Research Lab Cam 1', '192.168.5.101', 'rtsp://192.168.5.101/stream1', true, true, '2024-01-15 08:30:00+09'),
+(9, 'Research Lab Cam 2', '192.168.5.102', 'rtsp://192.168.5.102/stream1', false, true, '2024-01-15 08:30:00+09'),
+(10, 'Research Server Cam', '192.168.5.201', 'rtsp://192.168.5.201/stream1', true, false, '2024-01-15 08:30:00+09');
 
 -- Mock data for alarm table
 INSERT INTO alarm (site_id, bridge_id, camera_id, alarm_name, alarm_type, last_alarm_at, is_read, read_at, snapshot_urls) VALUES

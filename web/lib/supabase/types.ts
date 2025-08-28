@@ -135,9 +135,8 @@ export type Database = {
           ip_address: string
           is_registered: boolean
           last_checked_at: string
-          password: string
+          source: string
           updated_at: string
-          username: string
         }
         Insert: {
           bridge_id: number
@@ -148,9 +147,8 @@ export type Database = {
           ip_address: string
           is_registered?: boolean
           last_checked_at?: string
-          password: string
+          source: string
           updated_at?: string
-          username: string
         }
         Update: {
           bridge_id?: number
@@ -161,13 +159,53 @@ export type Database = {
           ip_address?: string
           is_registered?: boolean
           last_checked_at?: string
-          password?: string
+          source?: string
           updated_at?: string
-          username?: string
         }
         Relationships: [
           {
             foreignKeyName: "camera_bridge_id_fkey"
+            columns: ["bridge_id"]
+            isOneToOne: false
+            referencedRelation: "bridge"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      response: {
+        Row: {
+          bridge_id: number
+          created_at: string
+          id: number
+          request_id: string
+          request_path: string
+          requester_id: string
+          response_body: Json | null
+          updated_at: string
+        }
+        Insert: {
+          bridge_id: number
+          created_at?: string
+          id?: never
+          request_id: string
+          request_path: string
+          requester_id: string
+          response_body?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          bridge_id?: number
+          created_at?: string
+          id?: never
+          request_id?: string
+          request_path?: string
+          requester_id?: string
+          response_body?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_bridge_id_fkey"
             columns: ["bridge_id"]
             isOneToOne: false
             referencedRelation: "bridge"

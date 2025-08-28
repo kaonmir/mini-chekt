@@ -18,9 +18,11 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/gin-gonic/gin"
 
+	"github.com/bluenviron/mediamtx/internal/alarm"
 	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/confdb"
 	"github.com/bluenviron/mediamtx/internal/confwatcher"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -82,6 +84,7 @@ type Core struct {
 	ctxCancel       func()
 	confPath        string
 	conf            *conf.Conf
+	confdb          *confdb.ConfDB
 	logger          *logger.Logger
 	externalCmdPool *externalcmd.Pool
 	authManager     *auth.Manager
@@ -98,12 +101,14 @@ type Core struct {
 	webRTCServer    *webrtc.Server
 	srtServer       *srt.Server
 	smtpServer      *smtp.Server
+	alarmManager    *alarm.Aalrm
 	api             *api.API
 	confWatcher     *confwatcher.ConfWatcher
 	subscriber      *subscriber.Subscriber
 
 	// in
 	chAPIConfigSet chan *conf.Conf
+	chMail         chan smtp.Mail
 
 	// out
 	done chan struct{}
@@ -147,6 +152,29 @@ func New(args []string) (*Core, bool) {
 	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "", "")
 
 	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths, tempLogger)
+	if err != nil {
+		fmt.Printf("ERR: %s\n", err)
+		return nil, false
+	}
+
+	if p.logger == nil {
+		p.logger, err = logger.New(
+			logger.Level(p.conf.LogLevel),
+			p.conf.LogDestinations,
+			p.conf.LogFile,
+			p.conf.SysLogPrefix,
+		)
+		if err != nil {
+			return nil, false
+		}
+	}
+
+	p.confdb = &confdb.ConfDB{
+		Conf:   p.conf,
+		Parent: p,
+	}
+
+	err = p.confdb.Load()
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
 		return nil, false
@@ -212,7 +240,7 @@ outer:
 				break outer
 			}
 
-			err = p.reloadConf(newConf, false)
+			err = p.ReloadConf(newConf, false)
 			if err != nil {
 				p.Log(logger.Error, "%s", err)
 				break outer
@@ -221,7 +249,7 @@ outer:
 		case newConf := <-p.chAPIConfigSet:
 			p.Log(logger.Info, "reloading configuration (API request)")
 
-			err := p.reloadConf(newConf, true)
+			err := p.ReloadConf(newConf, true)
 			if err != nil {
 				p.Log(logger.Error, "%s", err)
 				break outer
@@ -243,18 +271,6 @@ outer:
 
 func (p *Core) createResources(initial bool) error {
 	var err error
-
-	if p.logger == nil {
-		p.logger, err = logger.New(
-			logger.Level(p.conf.LogLevel),
-			p.conf.LogDestinations,
-			p.conf.LogFile,
-			p.conf.SysLogPrefix,
-		)
-		if err != nil {
-			return err
-		}
-	}
 
 	if initial {
 		p.Log(logger.Info, "MediaMTX %s", version)
@@ -609,15 +625,26 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.SMTP &&
 		p.smtpServer == nil {
+
+		p.chMail = make(chan smtp.Mail, 1000)
 		i := &smtp.Server{
 			Port:   p.conf.SMTPPort,
 			Parent: p,
+			ChMail: &p.chMail,
 		}
 		err = i.Initialize()
 		if err != nil {
 			return err
 		}
 		p.smtpServer = i
+
+		// Initialize Alarm Manager
+		alarmMgr := alarm.New(p.conf, p.confdb, p, &p.chMail)
+		err = alarmMgr.Initialize()
+		if err != nil {
+			return err
+		}
+		p.alarmManager = alarmMgr
 	}
 
 	if p.conf.API &&
@@ -944,6 +971,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		p.smtpServer = nil
 	}
 
+	if closeSMTPServer && p.alarmManager != nil {
+		p.alarmManager.Close()
+		p.alarmManager = nil
+	}
+
 	if closeWebRTCServer && p.webRTCServer != nil {
 		p.webRTCServer.Close()
 		p.webRTCServer = nil
@@ -1014,7 +1046,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 }
 
-func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
+func (p *Core) ReloadConf(newConf *conf.Conf, calledByAPI bool) error {
 	p.closeResources(newConf, calledByAPI)
 	p.conf = newConf
 	return p.createResources(false)

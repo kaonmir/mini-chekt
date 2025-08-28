@@ -12,6 +12,7 @@ import (
 
 type Mail struct {
 	From    string
+	FromIP  string
 	To      []string
 	Parts   []EmailPart
 	Content []byte
@@ -32,13 +33,13 @@ type Server struct {
 	wg        sync.WaitGroup
 
 	// out
-	ChMail chan Mail
+	ChMail *chan Mail
 }
 
 func (s *Server) Initialize() error {
 	backend := &Backend{
 		Parent: s.Parent,
-		chMail: &s.ChMail,
+		chMail: s.ChMail,
 	}
 
 	s.server = smtp.NewServer(backend)
@@ -50,8 +51,6 @@ func (s *Server) Initialize() error {
 	s.server.MaxRecipients = 50
 	s.server.MaxLineLength = 2000
 	s.server.AllowInsecureAuth = true
-
-	s.ChMail = make(chan Mail, 10000)
 
 	// Initialize context for graceful shutdown
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
@@ -87,15 +86,15 @@ func (s *Server) run() {
 	s.Log(logger.Info, "Starting SMTP server on %s", s.server.Addr)
 
 	// Create a channel to receive server errors
-	errChan := make(chan error, 1)
+	chErr := make(chan error, 1)
 
 	go func() {
-		errChan <- s.server.ListenAndServe()
+		chErr <- s.server.ListenAndServe()
 	}()
 
 	// Wait for either context cancellation or server error
 	select {
-	case err := <-errChan:
+	case err := <-chErr:
 		if err != nil {
 			s.Log(logger.Error, "SMTP server error: %v", err)
 		}

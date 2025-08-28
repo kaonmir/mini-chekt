@@ -35,9 +35,7 @@ CREATE TABLE IF NOT EXISTS camera (
   bridge_id bigint NOT NULL,
   camera_name text NOT NULL,
   ip_address text NOT NULL,
-  
-  username text NOT NULL,
-  password text NOT NULL,
+  source text NOT NULL,
   is_registered boolean NOT NULL DEFAULT false,
   healthy boolean NOT NULL DEFAULT true,
   last_checked_at timestamp with time zone NOT NULL DEFAULT now(),

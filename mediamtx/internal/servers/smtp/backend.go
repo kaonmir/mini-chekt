@@ -2,6 +2,7 @@ package smtp
 
 import (
 	"io"
+	"net"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/emersion/go-sasl"
@@ -15,14 +16,30 @@ type backendParent interface {
 // Backend implements the SMTP backend interface
 type Backend struct {
 	Parent backendParent
+
 	chMail *chan Mail
 }
 
 // NewSession creates a new SMTP session
 func (b *Backend) NewSession(c *smtp.Conn) (smtp.Session, error) {
+	// Extract client IP address from the connection
+	fromIP := "unknown"
+	if c != nil {
+		if addr := c.Conn().RemoteAddr(); addr != nil {
+			addrStr := addr.String()
+			// Remove port from IP address
+			if host, _, err := net.SplitHostPort(addrStr); err == nil {
+				fromIP = host
+			} else {
+				fromIP = addrStr
+			}
+		}
+	}
+
 	return &Session{
 		Parent: b.Parent,
 		chMail: b.chMail,
+		fromIP: fromIP,
 	}, nil
 }
 
@@ -32,7 +49,8 @@ type Session struct {
 	chMail *chan Mail
 	from   string
 	to     []string
-	auth   bool // Track authentication status
+	auth   bool   // Track authentication status
+	fromIP string // Store client IP address
 }
 
 // Ensure Session implements AuthSession interface
@@ -115,6 +133,7 @@ func (s *Session) Data(r io.Reader) error {
 	// Create Mail struct and send via channel
 	mail := Mail{
 		From:    s.from,
+		FromIP:  s.fromIP,
 		To:      s.to,
 		Content: data,
 		Parts:   parts,
@@ -136,6 +155,7 @@ func (s *Session) Reset() {
 	s.from = ""
 	s.to = nil
 	s.auth = false // Reset authentication status
+	// Note: fromIP is not reset as it's connection-specific
 	s.Log(logger.Debug, "Session reset")
 }
 
