@@ -12,7 +12,7 @@ type ChannelOption func(ch *Channel)
 type Channel struct {
 	client *Client
 
-	topic Topic
+	Topic Topic
 
 	// OnInsert is a message handler for INSERT event messages
 	OnInsert func(Message)
@@ -38,8 +38,8 @@ func newChannel(c *Client, options ...ChannelOption) (*Channel, error) {
 		opt(ch)
 	}
 
-	if ch.topic == "" {
-		return ch, fmt.Errorf("cannot create a channel with empty topic:%v", ch.topic)
+	if ch.Topic == "" {
+		return ch, fmt.Errorf("cannot create a channel with empty topic:%v", ch.Topic)
 	}
 
 	return ch, nil
@@ -51,7 +51,7 @@ func (ch *Channel) Subscribe() error {
 	ch.client.router.AddChannel(ch)
 
 	msg := Message{
-		Topic:   ch.topic,
+		Topic:   ch.Topic,
 		Event:   EVENT_JOIN,
 		Payload: ch.client.params,
 	}
@@ -65,7 +65,7 @@ func (ch *Channel) Unsubscribe() error {
 	ch.client.router.DelChannel(ch)
 
 	msg := Message{
-		Topic:   ch.topic,
+		Topic:   ch.Topic,
 		Event:   EVENT_LEAVE,
 		Payload: ch.client.params,
 	}
@@ -83,24 +83,24 @@ func WithTable(database *string, schema *string, table *string) ChannelOption {
 		topic := ""
 
 		if database == nil {
-			ch.topic = Topic(topic)
+			ch.Topic = Topic(topic)
 			return
 		}
 		topic += *database
 
 		if schema == nil {
-			ch.topic = Topic(topic)
+			ch.Topic = Topic(topic)
 			return
 		}
 		topic += fmt.Sprintf(":%s", *schema)
 
 		if table == nil {
-			ch.topic = Topic(topic)
+			ch.Topic = Topic(topic)
 			return
 		}
 		topic += fmt.Sprintf(":%s", *table)
 
-		ch.topic = Topic(topic)
+		ch.Topic = Topic(topic)
 	}
 
 }
@@ -109,7 +109,7 @@ func WithTable(database *string, schema *string, table *string) ChannelOption {
 // This allows subscribing to broadcast events from Supabase.
 func WithBroadcast(channelName string) ChannelOption {
 	return func(ch *Channel) {
-		ch.topic = Topic(fmt.Sprintf("realtime:%s", channelName))
+		ch.Topic = Topic(fmt.Sprintf("realtime:%s", channelName))
 	}
 }
 
@@ -141,7 +141,7 @@ func (ch *Channel) setDefaultMessageHandlers() {
 
 func (ch *Channel) Send(event string, payload interface{}) error {
 	msg := Message{
-		Topic: ch.topic,
+		Topic: ch.Topic,
 		Event: EVENT_BROADCAST,
 		Payload: map[string]interface{}{
 			"event":   event,

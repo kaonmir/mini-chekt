@@ -162,7 +162,9 @@ type Conf struct {
 	RunOnConnect        string          `json:"runOnConnect"`
 	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
-	// Environment variables
+
+	// Bridge
+	BridgeUUID  string `json:"bridgeUUID"`
 	SupabaseURL string `json:"supabaseURL"`
 	SupabaseKey string `json:"supabaseKey"`
 

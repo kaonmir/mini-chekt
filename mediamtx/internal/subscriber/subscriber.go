@@ -5,7 +5,9 @@ import (
 	"sync"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/confdb"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/onvif/discovery"
 	realtimego "github.com/bluenviron/mediamtx/pkg/realtime-go"
 )
 
@@ -14,10 +16,8 @@ type SubscriberParent interface {
 }
 
 type Subscriber struct {
-	BridgeId    int64
-	SupabaseURL string
-	SupabaseKey string
-	Conf        *conf.Conf
+	Conf   *conf.Conf
+	ConfDB *confdb.ConfDB
 
 	ch *realtimego.Channel
 
@@ -26,7 +26,7 @@ type Subscriber struct {
 }
 
 func (s *Subscriber) Initialize() error {
-	client, err := realtimego.NewClient(s.SupabaseURL, s.SupabaseKey)
+	client, err := realtimego.NewClient(s.Conf.SupabaseURL, s.Conf.SupabaseKey)
 	if err != nil {
 		return fmt.Errorf("failed to create supabase realtime client: %w", err)
 	}
@@ -37,7 +37,7 @@ func (s *Subscriber) Initialize() error {
 	}
 
 	ch, err := client.Channel(
-		realtimego.WithBroadcast(fmt.Sprintf("bridge-%d", s.BridgeId)),
+		realtimego.WithBroadcast(fmt.Sprintf("bridge-%d", s.ConfDB.BridgeId)),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create realtime channel: %w", err)
@@ -61,10 +61,25 @@ func (s *Subscriber) Initialize() error {
 		return fmt.Errorf("failed to subscribe to channel: %w", err)
 	}
 
+	s.Log(logger.Info, "subscribed to channel %s", ch.Topic)
 	s.ch = ch
 
 	return nil
 }
+
+// func (s *session) respond(payload map[string]interface{}) {
+// 	responseData := map[string]interface{}{
+// 		"bridge_id":     s.bridge_id,
+// 		"request_id":    s.request_id,
+// 		"requester_id":  s.requester_id,
+// 		"request_path":  s.event,
+// 		"response_body": payload,
+// 	}
+// 	_, _, err := s.db.From("response").Insert(responseData, false, "", "", "").Execute()
+// 	if err != nil {
+// 		s.log.Log(logger.Error, "[%s] [%s] Failed to insert response: %v", s.event, s.request_id, err)
+// 	}
+// }
 
 func (s *Subscriber) Close() {
 	s.mutex.Lock()
@@ -81,5 +96,11 @@ func (s *Subscriber) Log(level logger.Level, format string, args ...interface{})
 }
 
 func (s *Subscriber) onCameras(payload map[string]interface{}) {
-	s.Log(logger.Info, "onCameras", payload)
+	devices, err := discovery.DiscoverDevices()
+	if err != nil {
+		s.Log(logger.Error, "failed to discover devices: %v", err)
+		return
+	}
+
+	s.Log(logger.Info, "found %d devices", len(devices))
 }
