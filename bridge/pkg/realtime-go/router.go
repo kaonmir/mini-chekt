@@ -19,14 +19,14 @@ func (r *router) AddChannel(ch *Channel) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.channels[ch.topic] = ch
+	r.channels[ch.Topic] = ch
 }
 
 func (r *router) DelChannel(ch *Channel) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	delete(r.channels, ch.topic)
+	delete(r.channels, ch.Topic)
 }
 
 func (r *router) RouteMessage(msg *Message) {

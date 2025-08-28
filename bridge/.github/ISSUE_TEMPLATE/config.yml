@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Question
+    url: https://github.com/kaonmir/mini-chekt/discussions/new?category=questions
+    about: Ask the community for help

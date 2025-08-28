@@ -1,106 +1,157 @@
-// Package logger contains a logger.
+// Package logger contains a logger implementation.
 package logger
 
 import (
+	"bytes"
 	"fmt"
-	"log"
-	"path/filepath"
-	"runtime"
+	"sync"
+	"time"
+
+	"github.com/gookit/color"
 )
 
-// LogLevel is a log level.
-type LogLevel int
-
-const (
-	// Debug is the debug log level.
-	Debug LogLevel = iota
-	// Info is the info log level.
-	Info
-	// Warn is the warn log level.
-	Warn
-	// Error is the error log level.
-	Error
-)
-
-// ANSI color codes
-const (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[31m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorBlue   = "\033[34m"
-	colorPurple = "\033[35m"
-	colorCyan   = "\033[36m"
-	colorWhite  = "\033[37m"
-)
-
-// Logger is a logger.
+// Logger is a log handler.
 type Logger struct {
-	level LogLevel
+	level Level
+
+	destinations []destination
+	mutex        sync.Mutex
 }
 
-// New allocates a logger.
-func New() *Logger {
-	return &Logger{
-		level: Info,
+// New allocates a log handler.
+func New(level Level, destinations []Destination, filePath string, sysLogPrefix string) (*Logger, error) {
+	lh := &Logger{
+		level: level,
+	}
+
+	for _, destType := range destinations {
+		switch destType {
+		case DestinationStdout:
+			lh.destinations = append(lh.destinations, newDestionationStdout())
+
+		case DestinationFile:
+			dest, err := newDestinationFile(filePath)
+			if err != nil {
+				lh.Close()
+				return nil, err
+			}
+			lh.destinations = append(lh.destinations, dest)
+
+		case DestinationSyslog:
+			dest, err := newDestinationSyslog(sysLogPrefix)
+			if err != nil {
+				lh.Close()
+				return nil, err
+			}
+			lh.destinations = append(lh.destinations, dest)
+		}
+	}
+
+	return lh, nil
+}
+
+// Close closes a log handler.
+func (lh *Logger) Close() {
+	for _, dest := range lh.destinations {
+		dest.close()
 	}
 }
 
-// getLevelColor returns the color code for the given log level
-func getLevelColor(level LogLevel) string {
+// https://golang.org/src/log/log.go#L78
+func itoa(i int, wid int) []byte {
+	// Assemble decimal in reverse order.
+	var b [20]byte
+	bp := len(b) - 1
+	for i >= 10 || wid > 1 {
+		wid--
+		q := i / 10
+		b[bp] = byte('0' + i - q*10)
+		bp--
+		i = q
+	}
+	// i < 10
+	b[bp] = byte('0' + i)
+	return b[bp:]
+}
+
+func writeTime(buf *bytes.Buffer, t time.Time, useColor bool) {
+	var intbuf bytes.Buffer
+
+	// date
+	year, month, day := t.Date()
+	intbuf.Write(itoa(year, 4))
+	intbuf.WriteByte('/')
+	intbuf.Write(itoa(int(month), 2))
+	intbuf.WriteByte('/')
+	intbuf.Write(itoa(day, 2))
+	intbuf.WriteByte(' ')
+
+	// time
+	hour, minute, sec := t.Clock()
+	intbuf.Write(itoa(hour, 2))
+	intbuf.WriteByte(':')
+	intbuf.Write(itoa(minute, 2))
+	intbuf.WriteByte(':')
+	intbuf.Write(itoa(sec, 2))
+	intbuf.WriteByte(' ')
+
+	if useColor {
+		buf.WriteString(color.RenderString(color.Gray.Code(), intbuf.String()))
+	} else {
+		buf.WriteString(intbuf.String())
+	}
+}
+
+func writeLevel(buf *bytes.Buffer, level Level, useColor bool) {
 	switch level {
 	case Debug:
-		return colorCyan
-	case Info:
-		return colorGreen
-	case Warn:
-		return colorYellow
-	case Error:
-		return colorRed
-	default:
-		return colorWhite
-	}
-}
-
-// getLevelName returns the string representation of the log level
-func getLevelName(level LogLevel) string {
-	switch level {
-	case Debug:
-		return "DEBUG"
-	case Info:
-		return "INFO"
-	case Warn:
-		return "WARN"
-	case Error:
-		return "ERROR"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-// SetLevel sets the log level.
-func (l *Logger) SetLevel(level LogLevel) {
-	l.level = level
-}
-
-// Log logs a message.
-func (l *Logger) Log(level LogLevel, format string, args ...interface{}) {
-	if level >= l.level {
-		// Get caller information
-		_, file, line, ok := runtime.Caller(1)
-		if !ok {
-			file = "unknown"
-			line = 0
+		if useColor {
+			buf.WriteString(color.RenderString(color.Debug.Code(), "DEB"))
+		} else {
+			buf.WriteString("DEB")
 		}
 
-		// Get just the filename without the full path
-		filename := filepath.Base(file)
+	case Info:
+		if useColor {
+			buf.WriteString(color.RenderString(color.Green.Code(), "INF"))
+		} else {
+			buf.WriteString("INF")
+		}
 
-		color := getLevelColor(level)
-		levelName := getLevelName(level)
-		coloredLevel := fmt.Sprintf("%s[%s]%s", color, levelName, colorReset)
-		fileInfo := fmt.Sprintf("%s%s:%d%s", colorCyan, filename, line, colorReset)
+	case Warn:
+		if useColor {
+			buf.WriteString(color.RenderString(color.Warn.Code(), "WAR"))
+		} else {
+			buf.WriteString("WAR")
+		}
 
-		log.Printf("%s %s "+format, append([]interface{}{coloredLevel, fileInfo}, args...)...)
+	case Error:
+		if useColor {
+			buf.WriteString(color.RenderString(color.Error.Code(), "ERR"))
+		} else {
+			buf.WriteString("ERR")
+		}
+	}
+	buf.WriteByte(' ')
+}
+
+func writeContent(buf *bytes.Buffer, format string, args []interface{}) {
+	fmt.Fprintf(buf, format, args...)
+	buf.WriteByte('\n')
+}
+
+// Log writes a log entry.
+func (lh *Logger) Log(level Level, format string, args ...interface{}) {
+	if level < lh.level {
+		return
+	}
+
+	lh.mutex.Lock()
+	defer lh.mutex.Unlock()
+
+	t := time.Now()
+
+	for _, dest := range lh.destinations {
+		dest.log(t, level, format, args...)
 	}
 }

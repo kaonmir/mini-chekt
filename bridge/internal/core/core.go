@@ -1,167 +1,1061 @@
-// Package core contains the main struct of the bridge service.
+// Package core contains the main struct of the software.
 package core
 
 import (
 	"context"
+	_ "embed"
+	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"reflect"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/kaonmir/bridge/internal/config"
-	"github.com/kaonmir/bridge/internal/logger"
-	"github.com/kaonmir/bridge/internal/manager/alarm"
-	"github.com/kaonmir/bridge/internal/manager/recorder"
-	"github.com/kaonmir/bridge/internal/manager/subscription"
-	"github.com/kaonmir/bridge/internal/manager/toolbox"
-	"github.com/kaonmir/bridge/internal/smtp"
-	"github.com/kaonmir/bridge/internal/supabase"
+	"github.com/alecthomas/kong"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/gin-gonic/gin"
+
+	"github.com/kaonmir/mini-chekt/internal/alarm"
+	"github.com/kaonmir/mini-chekt/internal/api"
+	"github.com/kaonmir/mini-chekt/internal/auth"
+	"github.com/kaonmir/mini-chekt/internal/conf"
+	"github.com/kaonmir/mini-chekt/internal/confdb"
+	"github.com/kaonmir/mini-chekt/internal/confwatcher"
+	"github.com/kaonmir/mini-chekt/internal/externalcmd"
+	"github.com/kaonmir/mini-chekt/internal/logger"
+	"github.com/kaonmir/mini-chekt/internal/metrics"
+	"github.com/kaonmir/mini-chekt/internal/playback"
+	"github.com/kaonmir/mini-chekt/internal/pprof"
+	"github.com/kaonmir/mini-chekt/internal/recordcleaner"
+	"github.com/kaonmir/mini-chekt/internal/rlimit"
+	"github.com/kaonmir/mini-chekt/internal/servers/hls"
+	"github.com/kaonmir/mini-chekt/internal/servers/rtmp"
+	"github.com/kaonmir/mini-chekt/internal/servers/rtsp"
+	"github.com/kaonmir/mini-chekt/internal/servers/smtp"
+	"github.com/kaonmir/mini-chekt/internal/servers/srt"
+	"github.com/kaonmir/mini-chekt/internal/servers/webrtc"
+	"github.com/kaonmir/mini-chekt/internal/subscriber"
 )
 
-// Core is an instance of bridge server supporting multiple protocols.
+//go:generate go run ./versiongetter
+
+var version []byte
+
+var defaultConfPaths = []string{
+	"rtsp-simple-server.yml",
+	"mediamtx.yml",
+	"/usr/local/etc/mediamtx.yml",
+	"/usr/etc/mediamtx.yml",
+	"/etc/mediamtx/mediamtx.yml",
+}
+
+var cli struct {
+	Version  bool   `help:"print version"`
+	Confpath string `arg:"" default:""`
+}
+
+func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
+	for _, e := range pathConfs {
+		if e.RecordDeleteAfter != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func getRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption) int {
+	// UDP max payload size - 12 (RTP header)
+	v := udpMaxPayloadSize - 12
+
+	// 10 (SRTP HMAC SHA1 authentication tag)
+	if rtspEncryption == conf.EncryptionOptional || rtspEncryption == conf.EncryptionStrict {
+		v -= 10
+	}
+
+	return v
+}
+
+// Core is an instance of MediaMTX.
 type Core struct {
-	ctx       context.Context
-	ctxCancel func()
-	logger    *logger.Logger
-	config    *config.Config
-
+	ctx             context.Context
+	ctxCancel       func()
+	confPath        string
+	conf            *conf.Conf
+	confdb          *confdb.ConfDB
+	logger          *logger.Logger
+	externalCmdPool *externalcmd.Pool
+	authManager     *auth.Manager
+	metrics         *metrics.Metrics
+	pprof           *pprof.PPROF
+	recordCleaner   *recordcleaner.Cleaner
+	playbackServer  *playback.Server
+	pathManager     *pathManager
+	rtspServer      *rtsp.Server
+	rtspsServer     *rtsp.Server
+	rtmpServer      *rtmp.Server
+	rtmpsServer     *rtmp.Server
+	hlsServer       *hls.Server
+	webRTCServer    *webrtc.Server
+	srtServer       *srt.Server
 	smtpServer      *smtp.Server
-	supabase        *supabase.Supabase
-	toolbox         *toolbox.Toolbox
-	alarmManager    *alarm.Manager
-	subscription    *subscription.Subscription
-	recorderManager *recorder.Manager
+	alarmManager    *alarm.Aalrm
+	api             *api.API
+	confWatcher     *confwatcher.ConfWatcher
+	subscriber      *subscriber.Subscriber
+
+	// in
+	chAPIConfigSet chan *conf.Conf
+	chMail         chan smtp.Mail
+
+	// out
+	done chan struct{}
 }
 
-// Event represents an event to be sent to the server
-type Event struct {
-	Type      string                 `json:"type"`
-	Timestamp time.Time              `json:"timestamp"`
-	Data      map[string]interface{} `json:"data"`
-}
-
-// NewCore allocates a core.
+// New allocates a Core.
 func New(args []string) (*Core, bool) {
+	parser, err := kong.New(&cli,
+		kong.Description("MediaMTX "+string(version)),
+		kong.UsageOnError(),
+		kong.ValueFormatter(func(value *kong.Value) string {
+			switch value.Name {
+			case "confpath":
+				return "path to a config file. The default is mediamtx.yml."
+
+			default:
+				return kong.DefaultHelpValueFormatter(value)
+			}
+		}))
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = parser.Parse(args)
+	parser.FatalIfErrorf(err)
+
+	if cli.Version {
+		fmt.Println(string(version))
+		os.Exit(0)
+	}
+
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
-	// Load configuration
-	cfg := config.Load()
+	p := &Core{
+		ctx:            ctx,
+		ctxCancel:      ctxCancel,
+		chAPIConfigSet: make(chan *conf.Conf),
+		done:           make(chan struct{}),
+	}
 
-	// Create logger
-	log := logger.New()
+	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "", "")
 
-	smtpServer := smtp.New(log, cfg.SMTPPort)
-
-	// Use the new Supabase client initialization function
-	supabase, err := supabase.NewSupabaseClient(cfg)
+	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths, tempLogger)
 	if err != nil {
-		log.Log(logger.Error, "Failed to create Supabase client: %v", err)
+		fmt.Printf("ERR: %s\n", err)
 		return nil, false
 	}
 
-	toolbox := toolbox.NewToolbox(log, cfg, supabase)
-
-	// Create alarm manager with SMTP channel
-	alarmManager := alarm.New(log, smtpServer.GetMailChannel(), cfg, supabase, toolbox)
-
-	recorderManager := recorder.NewManager(toolbox.Cameras, log)
-
-	// Create subscription manager with bridge ID
-	subscriptionManager := subscription.NewSubscription(supabase, log, toolbox.BridgeId, recorderManager)
-
-	pa := &Core{
-		ctx:       ctx,
-		ctxCancel: ctxCancel,
-		logger:    log,
-		config:    cfg,
-
-		smtpServer:      smtpServer,
-		supabase:        supabase,
-		toolbox:         toolbox,
-		alarmManager:    alarmManager,
-		subscription:    subscriptionManager,
-		recorderManager: recorderManager,
+	if p.logger == nil {
+		p.logger, err = logger.New(
+			logger.Level(p.conf.LogLevel),
+			p.conf.LogDestinations,
+			p.conf.LogFile,
+			p.conf.SysLogPrefix,
+		)
+		if err != nil {
+			return nil, false
+		}
 	}
 
-	if !pa.start() {
-		pa.close()
+	p.confdb = &confdb.ConfDB{
+		Conf:   p.conf,
+		Parent: p,
+	}
+
+	err = p.confdb.Load()
+	if err != nil {
+		fmt.Printf("ERR: %s\n", err)
 		return nil, false
 	}
 
-	return pa, true
+	err = p.createResources(true)
+	if err != nil {
+		if p.logger != nil {
+			p.Log(logger.Error, "%s", err)
+		} else {
+			fmt.Printf("ERR: %s\n", err)
+		}
+		p.closeResources(nil, false)
+		return nil, false
+	}
+
+	go p.run()
+
+	return p, true
 }
 
-func (pa *Core) start() bool {
+// Close closes Core and waits for all goroutines to return.
+func (p *Core) Close() {
+	p.ctxCancel()
+	<-p.done
+}
 
-	// Start alarm manager first
-	pa.alarmManager.Start()
+// Wait waits for the Core to exit.
+func (p *Core) Wait() {
+	<-p.done
+}
 
-	// Start recorder manager
-	pa.recorderManager.StartAll()
+// Log implements logger.Writer.
+func (p *Core) Log(level logger.Level, format string, args ...interface{}) {
+	p.logger.Log(level, format, args...)
+}
 
-	// Setup Supabase realtime subscriptions
-	if err := pa.subscription.Start(); err != nil {
-		pa.logger.Log(logger.Error, "Failed to setup subscriptions: %v", err)
-		return false
-	}
+func (p *Core) run() {
+	defer close(p.done)
 
-	// Start SMTP server in a goroutine
-	go func() {
-		if err := pa.smtpServer.Start(); err != nil {
-			pa.logger.Log(logger.Error, "Failed to start SMTP server: %v", err)
+	confChanged := func() chan struct{} {
+		if p.confWatcher != nil {
+			return p.confWatcher.Watch()
 		}
+		return make(chan struct{})
 	}()
 
-	pa.logger.Log(logger.Info, "Bridge service started successfully")
-	pa.logger.Log(logger.Info, "- Server URL: %s", pa.config.ServerURL)
-
-	return true
-}
-
-func (pa *Core) close() {
-	pa.logger.Log(logger.Info, "Stopping bridge services")
-
-	pa.ctxCancel()
-
-	// Stop alarm manager
-	if pa.alarmManager != nil {
-		pa.alarmManager.Stop()
-		pa.logger.Log(logger.Info, "Alarm manager stopped")
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	if runtime.GOOS == "linux" {
+		signal.Notify(interrupt, syscall.SIGTERM)
 	}
 
-	// Stop subscription manager
-	if pa.subscription != nil {
-		pa.subscription.Stop()
-		pa.logger.Log(logger.Info, "Subscription manager stopped")
-	}
+outer:
+	for {
+		select {
+		case <-confChanged:
+			p.Log(logger.Info, "reloading configuration (file changed)")
 
-	// Stop recorder manager
-	if pa.recorderManager != nil {
-		pa.recorderManager.StopAll()
-		pa.logger.Log(logger.Info, "Recorder manager stopped")
-	}
+			newConf, _, err := conf.Load(p.confPath, nil, p.logger)
+			if err != nil {
+				p.Log(logger.Error, "%s", err)
+				break outer
+			}
 
-	// Stop SMTP server
-	if pa.smtpServer != nil {
-		if err := pa.smtpServer.Stop(); err != nil {
-			pa.logger.Log(logger.Error, "Failed to stop SMTP server: %v", err)
-		} else {
-			pa.logger.Log(logger.Info, "SMTP server stopped")
+			err = p.ReloadConf(newConf, false)
+			if err != nil {
+				p.Log(logger.Error, "%s", err)
+				break outer
+			}
+
+		case newConf := <-p.chAPIConfigSet:
+			p.Log(logger.Info, "reloading configuration (API request)")
+
+			err := p.ReloadConf(newConf, true)
+			if err != nil {
+				p.Log(logger.Error, "%s", err)
+				break outer
+			}
+
+		case <-interrupt:
+			p.Log(logger.Info, "shutting down gracefully")
+			break outer
+
+		case <-p.ctx.Done():
+			break outer
 		}
 	}
 
-	pa.logger.Log(logger.Info, "All bridge services stopped")
+	p.ctxCancel()
+
+	p.closeResources(nil, false)
 }
 
-// Wait waits for the core to exit.
-func (pa *Core) Wait() {
-	pa.logger.Log(logger.Info, "Chekt Bridge is running")
+func (p *Core) createResources(initial bool) error {
+	var err error
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(sig)
+	if initial {
+		p.Log(logger.Info, "MediaMTX %s", version)
 
-	<-sig
+		if p.confPath != "" {
+			a, _ := filepath.Abs(p.confPath)
+			p.Log(logger.Info, "configuration loaded from %s", a)
+		} else {
+			list := make([]string, len(defaultConfPaths))
+			for i, pa := range defaultConfPaths {
+				a, _ := filepath.Abs(pa)
+				list[i] = a
+			}
 
-	pa.close()
+			p.Log(logger.Warn,
+				"configuration file not found (looked in %s), using an empty configuration",
+				strings.Join(list, ", "))
+		}
+
+		// on Linux, try to raise the number of file descriptors that can be opened
+		// to allow the maximum possible number of clients.
+		rlimit.Raise() //nolint:errcheck
+
+		gin.SetMode(gin.ReleaseMode)
+
+		p.externalCmdPool = &externalcmd.Pool{}
+		p.externalCmdPool.Initialize()
+	}
+
+	if p.authManager == nil {
+		p.authManager = &auth.Manager{
+			Method:             p.conf.AuthMethod,
+			InternalUsers:      p.conf.AuthInternalUsers,
+			HTTPAddress:        p.conf.AuthHTTPAddress,
+			HTTPExclude:        p.conf.AuthHTTPExclude,
+			JWTJWKS:            p.conf.AuthJWTJWKS,
+			JWTJWKSFingerprint: p.conf.AuthJWTJWKSFingerprint,
+			JWTClaimKey:        p.conf.AuthJWTClaimKey,
+			JWTExclude:         p.conf.AuthJWTExclude,
+			JWTInHTTPQuery:     p.conf.AuthJWTInHTTPQuery,
+			ReadTimeout:        time.Duration(p.conf.ReadTimeout),
+		}
+	}
+
+	if p.conf.Metrics &&
+		p.metrics == nil {
+		i := &metrics.Metrics{
+			Address:        p.conf.MetricsAddress,
+			Encryption:     p.conf.MetricsEncryption,
+			ServerKey:      p.conf.MetricsServerKey,
+			ServerCert:     p.conf.MetricsServerCert,
+			AllowOrigin:    p.conf.MetricsAllowOrigin,
+			TrustedProxies: p.conf.MetricsTrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			AuthManager:    p.authManager,
+			Parent:         p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.metrics = i
+	}
+
+	if p.conf.PPROF &&
+		p.pprof == nil {
+		i := &pprof.PPROF{
+			Address:        p.conf.PPROFAddress,
+			Encryption:     p.conf.PPROFEncryption,
+			ServerKey:      p.conf.PPROFServerKey,
+			ServerCert:     p.conf.PPROFServerCert,
+			AllowOrigin:    p.conf.PPROFAllowOrigin,
+			TrustedProxies: p.conf.PPROFTrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			AuthManager:    p.authManager,
+			Parent:         p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.pprof = i
+	}
+
+	if p.recordCleaner == nil &&
+		atLeastOneRecordDeleteAfter(p.conf.Paths) {
+		p.recordCleaner = &recordcleaner.Cleaner{
+			PathConfs: p.conf.Paths,
+			Parent:    p,
+		}
+		p.recordCleaner.Initialize()
+	}
+
+	if p.conf.Playback &&
+		p.playbackServer == nil {
+		i := &playback.Server{
+			Address:        p.conf.PlaybackAddress,
+			Encryption:     p.conf.PlaybackEncryption,
+			ServerKey:      p.conf.PlaybackServerKey,
+			ServerCert:     p.conf.PlaybackServerCert,
+			AllowOrigin:    p.conf.PlaybackAllowOrigin,
+			TrustedProxies: p.conf.PlaybackTrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			PathConfs:      p.conf.Paths,
+			AuthManager:    p.authManager,
+			Parent:         p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.playbackServer = i
+	}
+
+	if p.pathManager == nil {
+		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
+
+		p.pathManager = &pathManager{
+			logLevel:          p.conf.LogLevel,
+			authManager:       p.authManager,
+			rtspAddress:       p.conf.RTSPAddress,
+			readTimeout:       p.conf.ReadTimeout,
+			writeTimeout:      p.conf.WriteTimeout,
+			writeQueueSize:    p.conf.WriteQueueSize,
+			rtpMaxPayloadSize: rtpMaxPayloadSize,
+			pathConfs:         p.conf.Paths,
+			externalCmdPool:   p.externalCmdPool,
+			metrics:           p.metrics,
+			parent:            p,
+		}
+		p.pathManager.initialize()
+	}
+
+	if p.conf.RTSP &&
+		(p.conf.RTSPEncryption == conf.EncryptionNo ||
+			p.conf.RTSPEncryption == conf.EncryptionOptional) &&
+		p.rtspServer == nil {
+		_, useUDP := p.conf.RTSPTransports[gortsplib.TransportUDP]
+		_, useMulticast := p.conf.RTSPTransports[gortsplib.TransportUDPMulticast]
+
+		i := &rtsp.Server{
+			Address:             p.conf.RTSPAddress,
+			AuthMethods:         p.conf.RTSPAuthMethods,
+			UDPReadBufferSize:   p.conf.RTSPUDPReadBufferSize,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			WriteQueueSize:      p.conf.WriteQueueSize,
+			UseUDP:              useUDP,
+			UseMulticast:        useMulticast,
+			RTPAddress:          p.conf.RTPAddress,
+			RTCPAddress:         p.conf.RTCPAddress,
+			MulticastIPRange:    p.conf.MulticastIPRange,
+			MulticastRTPPort:    p.conf.MulticastRTPPort,
+			MulticastRTCPPort:   p.conf.MulticastRTCPPort,
+			IsTLS:               false,
+			ServerCert:          "",
+			ServerKey:           "",
+			RTSPAddress:         p.conf.RTSPAddress,
+			Transports:          p.conf.RTSPTransports,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			Metrics:             p.metrics,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.rtspServer = i
+	}
+
+	if p.conf.RTSP &&
+		(p.conf.RTSPEncryption == conf.EncryptionStrict ||
+			p.conf.RTSPEncryption == conf.EncryptionOptional) &&
+		p.rtspsServer == nil {
+		_, useUDP := p.conf.RTSPTransports[gortsplib.TransportUDP]
+		_, useMulticast := p.conf.RTSPTransports[gortsplib.TransportUDPMulticast]
+
+		i := &rtsp.Server{
+			Address:             p.conf.RTSPSAddress,
+			AuthMethods:         p.conf.RTSPAuthMethods,
+			UDPReadBufferSize:   p.conf.RTSPUDPReadBufferSize,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			WriteQueueSize:      p.conf.WriteQueueSize,
+			UseUDP:              useUDP,
+			UseMulticast:        useMulticast,
+			RTPAddress:          p.conf.SRTPAddress,
+			RTCPAddress:         p.conf.SRTCPAddress,
+			MulticastIPRange:    p.conf.MulticastIPRange,
+			MulticastRTPPort:    p.conf.MulticastSRTPPort,
+			MulticastRTCPPort:   p.conf.MulticastSRTCPPort,
+			IsTLS:               true,
+			ServerCert:          p.conf.RTSPServerCert,
+			ServerKey:           p.conf.RTSPServerKey,
+			RTSPAddress:         p.conf.RTSPAddress,
+			Transports:          p.conf.RTSPTransports,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			Metrics:             p.metrics,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.rtspsServer = i
+	}
+
+	if p.conf.RTMP &&
+		(p.conf.RTMPEncryption == conf.EncryptionNo ||
+			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
+		p.rtmpServer == nil {
+		i := &rtmp.Server{
+			Address:             p.conf.RTMPAddress,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			IsTLS:               false,
+			ServerCert:          "",
+			ServerKey:           "",
+			RTSPAddress:         p.conf.RTSPAddress,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			Metrics:             p.metrics,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.rtmpServer = i
+	}
+
+	if p.conf.RTMP &&
+		(p.conf.RTMPEncryption == conf.EncryptionStrict ||
+			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
+		p.rtmpsServer == nil {
+		i := &rtmp.Server{
+			Address:             p.conf.RTMPSAddress,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			IsTLS:               true,
+			ServerCert:          p.conf.RTMPServerCert,
+			ServerKey:           p.conf.RTMPServerKey,
+			RTSPAddress:         p.conf.RTSPAddress,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			Metrics:             p.metrics,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.rtmpsServer = i
+	}
+
+	if p.conf.HLS &&
+		p.hlsServer == nil {
+		i := &hls.Server{
+			Address:         p.conf.HLSAddress,
+			Encryption:      p.conf.HLSEncryption,
+			ServerKey:       p.conf.HLSServerKey,
+			ServerCert:      p.conf.HLSServerCert,
+			AllowOrigin:     p.conf.HLSAllowOrigin,
+			TrustedProxies:  p.conf.HLSTrustedProxies,
+			AlwaysRemux:     p.conf.HLSAlwaysRemux,
+			Variant:         p.conf.HLSVariant,
+			SegmentCount:    p.conf.HLSSegmentCount,
+			SegmentDuration: p.conf.HLSSegmentDuration,
+			PartDuration:    p.conf.HLSPartDuration,
+			SegmentMaxSize:  p.conf.HLSSegmentMaxSize,
+			Directory:       p.conf.HLSDirectory,
+			ReadTimeout:     p.conf.ReadTimeout,
+			MuxerCloseAfter: p.conf.HLSMuxerCloseAfter,
+			Metrics:         p.metrics,
+			PathManager:     p.pathManager,
+			Parent:          p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.hlsServer = i
+	}
+
+	if p.conf.WebRTC &&
+		p.webRTCServer == nil {
+		i := &webrtc.Server{
+			Address:               p.conf.WebRTCAddress,
+			Encryption:            p.conf.WebRTCEncryption,
+			ServerKey:             p.conf.WebRTCServerKey,
+			ServerCert:            p.conf.WebRTCServerCert,
+			AllowOrigin:           p.conf.WebRTCAllowOrigin,
+			TrustedProxies:        p.conf.WebRTCTrustedProxies,
+			ReadTimeout:           p.conf.ReadTimeout,
+			LocalUDPAddress:       p.conf.WebRTCLocalUDPAddress,
+			LocalTCPAddress:       p.conf.WebRTCLocalTCPAddress,
+			IPsFromInterfaces:     p.conf.WebRTCIPsFromInterfaces,
+			IPsFromInterfacesList: p.conf.WebRTCIPsFromInterfacesList,
+			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,
+			ICEServers:            p.conf.WebRTCICEServers2,
+			HandshakeTimeout:      p.conf.WebRTCHandshakeTimeout,
+			STUNGatherTimeout:     p.conf.WebRTCSTUNGatherTimeout,
+			TrackGatherTimeout:    p.conf.WebRTCTrackGatherTimeout,
+			ExternalCmdPool:       p.externalCmdPool,
+			Metrics:               p.metrics,
+			PathManager:           p.pathManager,
+			Parent:                p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.webRTCServer = i
+	}
+
+	if p.conf.SRT &&
+		p.srtServer == nil {
+		i := &srt.Server{
+			Address:             p.conf.SRTAddress,
+			RTSPAddress:         p.conf.RTSPAddress,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			UDPMaxPayloadSize:   p.conf.UDPMaxPayloadSize,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			Metrics:             p.metrics,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.srtServer = i
+	}
+
+	if p.conf.SMTP &&
+		p.smtpServer == nil {
+
+		p.chMail = make(chan smtp.Mail, 1000)
+		i := &smtp.Server{
+			Port:   p.conf.SMTPPort,
+			Parent: p,
+			ChMail: &p.chMail,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.smtpServer = i
+
+		// Initialize Alarm Manager
+		alarmMgr := alarm.New(p.conf, p.confdb, p, &p.chMail)
+		err = alarmMgr.Initialize()
+		if err != nil {
+			return err
+		}
+		p.alarmManager = alarmMgr
+	}
+
+	if p.conf.API &&
+		p.api == nil {
+		i := &api.API{
+			Address:        p.conf.APIAddress,
+			Encryption:     p.conf.APIEncryption,
+			ServerKey:      p.conf.APIServerKey,
+			ServerCert:     p.conf.APIServerCert,
+			AllowOrigin:    p.conf.APIAllowOrigin,
+			TrustedProxies: p.conf.APITrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			Conf:           p.conf,
+			AuthManager:    p.authManager,
+			PathManager:    p.pathManager,
+			RTSPServer:     p.rtspServer,
+			RTSPSServer:    p.rtspsServer,
+			RTMPServer:     p.rtmpServer,
+			RTMPSServer:    p.rtmpsServer,
+			HLSServer:      p.hlsServer,
+			WebRTCServer:   p.webRTCServer,
+			SRTServer:      p.srtServer,
+			Parent:         p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.api = i
+	}
+
+	s := &subscriber.Subscriber{
+		Conf:   p.conf,
+		ConfDB: p.confdb,
+		Parent: p,
+	}
+	err = s.Initialize()
+	if err != nil {
+		return err
+	}
+	p.subscriber = s
+
+	if initial && p.confPath != "" {
+		cf := &confwatcher.ConfWatcher{FilePath: p.confPath}
+		err = cf.Initialize()
+		if err != nil {
+			return err
+		}
+		p.confWatcher = cf
+	}
+
+	return nil
+}
+
+func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
+	closeLogger := newConf == nil ||
+		newConf.LogLevel != p.conf.LogLevel ||
+		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
+		newConf.LogFile != p.conf.LogFile ||
+		newConf.SysLogPrefix != p.conf.SysLogPrefix
+
+	closeAuthManager := newConf == nil ||
+		newConf.AuthMethod != p.conf.AuthMethod ||
+		newConf.AuthHTTPAddress != p.conf.AuthHTTPAddress ||
+		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
+		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
+		newConf.AuthJWTJWKSFingerprint != p.conf.AuthJWTJWKSFingerprint ||
+		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
+		!reflect.DeepEqual(newConf.AuthJWTExclude, p.conf.AuthJWTExclude) ||
+		newConf.AuthJWTInHTTPQuery != p.conf.AuthJWTInHTTPQuery ||
+		newConf.ReadTimeout != p.conf.ReadTimeout
+	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
+		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
+	}
+
+	closeMetrics := newConf == nil ||
+		newConf.Metrics != p.conf.Metrics ||
+		newConf.MetricsAddress != p.conf.MetricsAddress ||
+		newConf.MetricsEncryption != p.conf.MetricsEncryption ||
+		newConf.MetricsServerKey != p.conf.MetricsServerKey ||
+		newConf.MetricsServerCert != p.conf.MetricsServerCert ||
+		newConf.MetricsAllowOrigin != p.conf.MetricsAllowOrigin ||
+		!reflect.DeepEqual(newConf.MetricsTrustedProxies, p.conf.MetricsTrustedProxies) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
+		closeLogger
+
+	closePPROF := newConf == nil ||
+		newConf.PPROF != p.conf.PPROF ||
+		newConf.PPROFAddress != p.conf.PPROFAddress ||
+		newConf.PPROFEncryption != p.conf.PPROFEncryption ||
+		newConf.PPROFServerKey != p.conf.PPROFServerKey ||
+		newConf.PPROFServerCert != p.conf.PPROFServerCert ||
+		newConf.PPROFAllowOrigin != p.conf.PPROFAllowOrigin ||
+		!reflect.DeepEqual(newConf.PPROFTrustedProxies, p.conf.PPROFTrustedProxies) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
+		closeLogger
+
+	closeRecorderCleaner := newConf == nil ||
+		atLeastOneRecordDeleteAfter(newConf.Paths) != atLeastOneRecordDeleteAfter(p.conf.Paths) ||
+		closeLogger
+	if !closeRecorderCleaner && p.recordCleaner != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.recordCleaner.ReloadPathConfs(newConf.Paths)
+	}
+
+	closePlaybackServer := newConf == nil ||
+		newConf.Playback != p.conf.Playback ||
+		newConf.PlaybackAddress != p.conf.PlaybackAddress ||
+		newConf.PlaybackEncryption != p.conf.PlaybackEncryption ||
+		newConf.PlaybackServerKey != p.conf.PlaybackServerKey ||
+		newConf.PlaybackServerCert != p.conf.PlaybackServerCert ||
+		newConf.PlaybackAllowOrigin != p.conf.PlaybackAllowOrigin ||
+		!reflect.DeepEqual(newConf.PlaybackTrustedProxies, p.conf.PlaybackTrustedProxies) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
+		closeLogger
+	if !closePlaybackServer && p.playbackServer != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.playbackServer.ReloadPathConfs(newConf.Paths)
+	}
+
+	closePathManager := newConf == nil ||
+		newConf.LogLevel != p.conf.LogLevel ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
+		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
+		closeMetrics ||
+		closeAuthManager ||
+		closeLogger
+	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.pathManager.ReloadPathConfs(newConf.Paths)
+	}
+
+	closeRTSPServer := newConf == nil ||
+		newConf.RTSP != p.conf.RTSP ||
+		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
+		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
+		newConf.RTPAddress != p.conf.RTPAddress ||
+		newConf.RTCPAddress != p.conf.RTCPAddress ||
+		newConf.MulticastIPRange != p.conf.MulticastIPRange ||
+		newConf.MulticastRTPPort != p.conf.MulticastRTPPort ||
+		newConf.MulticastRTCPPort != p.conf.MulticastRTCPPort ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		closeMetrics ||
+		closePathManager ||
+		closeLogger
+
+	closeRTSPSServer := newConf == nil ||
+		newConf.RTSP != p.conf.RTSP ||
+		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
+		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
+		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
+		newConf.RTSPServerCert != p.conf.RTSPServerCert ||
+		newConf.RTSPServerKey != p.conf.RTSPServerKey ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		closeMetrics ||
+		closePathManager ||
+		closeLogger
+
+	closeRTMPServer := newConf == nil ||
+		newConf.RTMP != p.conf.RTMP ||
+		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
+		newConf.RTMPAddress != p.conf.RTMPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		closeMetrics ||
+		closePathManager ||
+		closeLogger
+
+	closeRTMPSServer := newConf == nil ||
+		newConf.RTMP != p.conf.RTMP ||
+		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
+		newConf.RTMPSAddress != p.conf.RTMPSAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.RTMPServerCert != p.conf.RTMPServerCert ||
+		newConf.RTMPServerKey != p.conf.RTMPServerKey ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		closeMetrics ||
+		closePathManager ||
+		closeLogger
+
+	closeHLSServer := newConf == nil ||
+		newConf.HLS != p.conf.HLS ||
+		newConf.HLSAddress != p.conf.HLSAddress ||
+		newConf.HLSEncryption != p.conf.HLSEncryption ||
+		newConf.HLSServerKey != p.conf.HLSServerKey ||
+		newConf.HLSServerCert != p.conf.HLSServerCert ||
+		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
+		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
+		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
+		newConf.HLSVariant != p.conf.HLSVariant ||
+		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
+		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
+		newConf.HLSPartDuration != p.conf.HLSPartDuration ||
+		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
+		newConf.HLSDirectory != p.conf.HLSDirectory ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.HLSMuxerCloseAfter != p.conf.HLSMuxerCloseAfter ||
+		closePathManager ||
+		closeMetrics ||
+		closeLogger
+
+	closeWebRTCServer := newConf == nil ||
+		newConf.WebRTC != p.conf.WebRTC ||
+		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
+		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
+		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||
+		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||
+		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
+		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WebRTCLocalUDPAddress != p.conf.WebRTCLocalUDPAddress ||
+		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
+		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||
+		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, p.conf.WebRTCIPsFromInterfacesList) ||
+		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
+		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
+		newConf.WebRTCHandshakeTimeout != p.conf.WebRTCHandshakeTimeout ||
+		newConf.WebRTCSTUNGatherTimeout != p.conf.WebRTCSTUNGatherTimeout ||
+		newConf.WebRTCTrackGatherTimeout != p.conf.WebRTCTrackGatherTimeout ||
+		closeMetrics ||
+		closePathManager ||
+		closeLogger
+
+	closeSRTServer := newConf == nil ||
+		newConf.SRT != p.conf.SRT ||
+		newConf.SRTAddress != p.conf.SRTAddress ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		closePathManager ||
+		closeLogger
+
+	closeSMTPServer := newConf == nil ||
+		newConf.SMTP != p.conf.SMTP ||
+		newConf.SMTPPort != p.conf.SMTPPort ||
+		closeLogger
+
+	closeAPI := newConf == nil ||
+		newConf.API != p.conf.API ||
+		newConf.APIAddress != p.conf.APIAddress ||
+		newConf.APIEncryption != p.conf.APIEncryption ||
+		newConf.APIServerKey != p.conf.APIServerKey ||
+		newConf.APIServerCert != p.conf.APIServerCert ||
+		newConf.APIAllowOrigin != p.conf.APIAllowOrigin ||
+		!reflect.DeepEqual(newConf.APITrustedProxies, p.conf.APITrustedProxies) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
+		closePathManager ||
+		closeRTSPServer ||
+		closeRTSPSServer ||
+		closeRTMPServer ||
+		closeHLSServer ||
+		closeWebRTCServer ||
+		closeSRTServer ||
+		closeSMTPServer ||
+		closeLogger
+
+	closeSubscriber := newConf == nil ||
+		newConf.SupabaseURL != p.conf.SupabaseURL ||
+		newConf.SupabaseKey != p.conf.SupabaseKey ||
+		closeLogger
+
+	if newConf == nil && p.confWatcher != nil {
+		p.confWatcher.Close()
+		p.confWatcher = nil
+	}
+
+	if p.api != nil {
+		if closeAPI {
+			p.api.Close()
+			p.api = nil
+		} else if !calledByAPI { // avoid a loop
+			p.api.ReloadConf(newConf)
+		}
+	}
+
+	if p.subscriber != nil {
+		if closeSubscriber {
+			p.subscriber.Close()
+			p.subscriber = nil
+		}
+	}
+
+	if closeSRTServer && p.srtServer != nil {
+		p.srtServer.Close()
+		p.srtServer = nil
+	}
+
+	if closeSMTPServer && p.smtpServer != nil {
+		p.smtpServer.Close()
+		p.smtpServer = nil
+	}
+
+	if closeSMTPServer && p.alarmManager != nil {
+		p.alarmManager.Close()
+		p.alarmManager = nil
+	}
+
+	if closeWebRTCServer && p.webRTCServer != nil {
+		p.webRTCServer.Close()
+		p.webRTCServer = nil
+	}
+
+	if closeHLSServer && p.hlsServer != nil {
+		p.hlsServer.Close()
+		p.hlsServer = nil
+	}
+
+	if closeRTMPSServer && p.rtmpsServer != nil {
+		p.rtmpsServer.Close()
+		p.rtmpsServer = nil
+	}
+
+	if closeRTMPServer && p.rtmpServer != nil {
+		p.rtmpServer.Close()
+		p.rtmpServer = nil
+	}
+
+	if closeRTSPSServer && p.rtspsServer != nil {
+		p.rtspsServer.Close()
+		p.rtspsServer = nil
+	}
+
+	if closeRTSPServer && p.rtspServer != nil {
+		p.rtspServer.Close()
+		p.rtspServer = nil
+	}
+
+	if closePathManager && p.pathManager != nil {
+		p.pathManager.close()
+		p.pathManager = nil
+	}
+
+	if closePlaybackServer && p.playbackServer != nil {
+		p.playbackServer.Close()
+		p.playbackServer = nil
+	}
+
+	if closeRecorderCleaner && p.recordCleaner != nil {
+		p.recordCleaner.Close()
+		p.recordCleaner = nil
+	}
+
+	if closePPROF && p.pprof != nil {
+		p.pprof.Close()
+		p.pprof = nil
+	}
+
+	if closeMetrics && p.metrics != nil {
+		p.metrics.Close()
+		p.metrics = nil
+	}
+
+	if closeAuthManager && p.authManager != nil {
+		p.authManager = nil
+	}
+
+	if newConf == nil && p.externalCmdPool != nil {
+		p.Log(logger.Info, "waiting for running hooks")
+		p.externalCmdPool.Close()
+	}
+
+	if closeLogger && p.logger != nil {
+		p.logger.Close()
+		p.logger = nil
+	}
+}
+
+func (p *Core) ReloadConf(newConf *conf.Conf, calledByAPI bool) error {
+	p.closeResources(newConf, calledByAPI)
+	p.conf = newConf
+	return p.createResources(false)
+}
+
+// APIConfigSet is called by api.
+func (p *Core) APIConfigSet(conf *conf.Conf) {
+	select {
+	case p.chAPIConfigSet <- conf:
+	case <-p.ctx.Done():
+	}
 }
