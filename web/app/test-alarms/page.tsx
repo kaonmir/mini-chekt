@@ -16,9 +16,7 @@ import { useSystemEvents } from "@/lib/hooks/use-system-events";
 import { useUserActivity } from "@/lib/hooks/use-user-activity";
 import { getGlobalUnreadCounts } from "@/lib/hooks/use-realtime-alarms";
 import { useState, useEffect } from "react";
-import type { Table } from "@/lib/database";
 
-type Alarm = Table<"alarm">;
 
 export default function TestAlarmsPage() {
   const [isCreating, setIsCreating] = useState(false);

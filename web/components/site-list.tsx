@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import type { Site } from "@/lib/database";
 import { Building2 } from "lucide-react";
+import Image from "next/image";
 
 export function SiteList() {
   const [sites, setSites] = useState<Site[]>([]);
@@ -49,10 +50,12 @@ export function SiteList() {
             <li key={site.id} className="p-3 border rounded">
               <div className="flex items-center gap-3">
                 {site.logo_url ? (
-                  <img
+                  <Image
                     src={site.logo_url}
                     alt={`${site.site_name} logo`}
-                    className="w-10 h-10 object-cover rounded border"
+                    width={40}
+                    height={40}
+                    className="object-cover rounded border"
                   />
                 ) : (
                   <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">

@@ -5,10 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, ChevronRight, Building2, Bell, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Building2, Plus } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Site } from "@/lib/database";
 import { useEffect } from "react";
 import {
   subscribeToGlobalAlarms,
@@ -32,7 +32,6 @@ export default function SiteSubNav() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sites, setSites] = useState<SiteWithUnreadCount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
   const pathname = usePathname();
 
   const fetchSites = async () => {
@@ -59,7 +58,6 @@ export default function SiteSubNav() {
     }));
 
     setSites(sitesWithCounts);
-    setUnreadCounts(currentUnreadCounts);
     setLoading(false);
   };
 
@@ -71,7 +69,6 @@ export default function SiteSubNav() {
   useEffect(() => {
     const unsubscribe = subscribeToGlobalAlarms(() => {
       const newUnreadCounts = getGlobalUnreadCounts();
-      setUnreadCounts(newUnreadCounts);
 
       // Update sites with new unread counts
       setSites((prevSites) =>
@@ -181,10 +178,12 @@ export default function SiteSubNav() {
                 {/* Site Logo/Icon */}
                 <div className="relative flex-shrink-0">
                   {site.logo_url ? (
-                    <img
+                    <Image
                       src={site.logo_url}
                       alt={`${site.site_name} logo`}
-                      className={`w-8 h-8 rounded-full object-cover border ${
+                      width={32}
+                      height={32}
+                      className={`rounded-full object-cover border ${
                         isActiveSite(site.id)
                           ? "border-primary-foreground/30"
                           : "border-border"

@@ -113,7 +113,7 @@ export default function AddCameraClient({
       setTimeout(() => {
         router.push(`/sites/${site.id}`);
       }, 2000);
-    } catch (err) {
+    } catch {
       setError("Failed to register camera. Please try again.");
     } finally {
       setIsLoading(false);

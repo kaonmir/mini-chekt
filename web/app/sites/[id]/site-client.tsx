@@ -9,20 +9,13 @@ import {
   Building2,
   Edit,
   Trash2,
-  MapPin,
-  Phone,
-  User,
   Bell,
   Activity,
   AlertTriangle,
   CheckCircle,
-  Clock,
   Settings,
-  BarChart3,
   Wifi,
   Video,
-  ChevronRight,
-  ChevronDown,
   ChevronLeft,
   Plus,
 } from "lucide-react";
@@ -32,10 +25,10 @@ import { useState } from "react";
 import { disconnectBridgeFromSite, deleteCamera } from "./actions";
 
 interface SiteClientProps {
-  site: any;
-  alarms: any[];
-  stats: any;
-  bridgesWithCameras: any[];
+  site: Record<string, unknown>;
+  alarms: Record<string, unknown>[];
+  stats: Record<string, unknown>;
+  bridgesWithCameras: Record<string, unknown>[];
 }
 
 export default function SiteClient({
@@ -362,7 +355,7 @@ export default function SiteClient({
                                 No cameras connected
                               </div>
                             ) : (
-                              bridge.cameras.map((camera: any) => (
+                              bridge.cameras.map((camera: Record<string, unknown>) => (
                                 <div
                                   key={camera.id}
                                   className="flex items-center justify-between p-2 bg-gray-50 rounded"

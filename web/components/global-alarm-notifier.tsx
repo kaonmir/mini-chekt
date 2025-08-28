@@ -54,7 +54,7 @@ export function GlobalAlarmNotifier({
           audio.play().catch(() => {
             // Ignore errors if audio file doesn't exist
           });
-        } catch (error) {
+        } catch {
           // Ignore audio errors
         }
 

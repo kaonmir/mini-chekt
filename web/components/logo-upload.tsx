@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { useState, useRef } from "react";
+import Image from "next/image";
 
 interface LogoUploadProps {
   currentLogoUrl?: string | null;
@@ -61,7 +62,7 @@ export default function LogoUpload({
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
       // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from("site-logos")
         .upload(fileName, file, {
           cacheControl: "3600",
@@ -123,10 +124,12 @@ export default function LogoUpload({
       <div className="flex items-center gap-4">
         {previewUrl ? (
           <div className="relative">
-            <img
+            <Image
               src={previewUrl}
               alt="Company logo"
-              className="w-20 h-20 object-cover rounded-lg border"
+              width={80}
+              height={80}
+              className="object-cover rounded-lg border"
             />
             <Button
               type="button"

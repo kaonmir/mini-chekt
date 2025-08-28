@@ -20,7 +20,7 @@ export async function findBridgeByAccessToken(accessToken: string) {
     }
 
     return data;
-  } catch (error) {
+  } catch {
     // access_token 필드가 없는 경우를 위한 임시 처리
     console.warn(
       "access_token field not found in bridge table. Please add it to the database."

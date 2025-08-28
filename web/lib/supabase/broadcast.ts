@@ -122,7 +122,7 @@ export async function broadcastUserActivity(activity: {
     | "create_alarm"
     | "mark_read";
   target: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }) {
   const supabase = createClient();
 
@@ -162,7 +162,7 @@ export async function broadcastUserPresence(presence: {
 export async function broadcastEvent(
   channelName: string,
   eventName: string,
-  payload: any
+  payload: Record<string, unknown>
 ) {
   const supabase = createClient();
 

@@ -9,7 +9,7 @@ interface GlobalAlarmProviderProps {
 
 export function GlobalAlarmProvider({ children }: GlobalAlarmProviderProps) {
   // Initialize global alarm listener (this will fetch all alarms and set up global state)
-  const { loading } = useRealtimeAlarms(); // No siteId means all alarms
+  useRealtimeAlarms(); // No siteId means all alarms
 
   useEffect(() => {
     // This effect ensures the global alarm state is initialized

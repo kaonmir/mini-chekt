@@ -6,24 +6,18 @@ import { listenForRequestResponse } from "./hooks/use-realtime-responses";
 interface FetchBridgeParams {
   bridgeId: number;
   path: string;
-  body?: any;
+  body?: Record<string, unknown>;
 }
 
 interface FetchBridgeResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
-}
-
-interface BridgeRequest {
-  request_id: string;
-  path: string;
-  body?: any;
 }
 
 interface BridgeResponse {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
@@ -60,7 +54,7 @@ export async function fetchBridge({
 
     return new Promise((resolve) => {
       channel
-        .on("broadcast", { event: "request" }, (payload) => {
+        .on("broadcast", { event: "request" }, () => {
           // This is just to confirm we're connected to the bridge channel
           console.log("Connected to bridge channel");
         })

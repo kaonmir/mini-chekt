@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   broadcastAlarmUpdate,
-  broadcastAlarmDelete,
 } from "@/lib/supabase/broadcast";
 import type { Table } from "@/lib/database";
 
@@ -192,7 +191,7 @@ export function useRealtimeAlarms(siteId?: number) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [siteId]);
+  }, [siteId, supabase]);
 
   return {
     alarms,

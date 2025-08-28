@@ -13,7 +13,7 @@ interface UserActivity {
     | "mark_read";
   target: string; // site_id, alarm_id, etc.
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export function useUserActivity() {
