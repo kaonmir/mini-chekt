@@ -114,10 +114,12 @@ func (a *Aalrm) run() {
 					event.SiteId = a.confdb.SiteId
 
 					// Upload recordings folder as zip to Supabase bucket
-					err = a.UploadRecordingsToBucket(event, data)
+					videoUrl, err := a.UploadRecordingsToBucket(event, data)
 					if err != nil {
 						a.Log(logger.Error, "Failed to upload recordings: %v", err)
 						// Continue processing even if file upload fails
+					} else {
+						a.Log(logger.Info, "Recordings uploaded successfully, public URL: %s", videoUrl)
 					}
 
 					// insert db and broadcast
@@ -128,6 +130,7 @@ func (a *Aalrm) run() {
 						"bridge_id":  event.BridgeId,
 						"camera_id":  event.CameraId,
 						"created_at": time.Now().UTC(),
+						"video_url":  videoUrl,
 					}
 					_, _, err = a.supabaseClient.From("alarm").Insert(eventData, false, "", "", "").Execute()
 					if err != nil {
@@ -150,11 +153,11 @@ func (a *Aalrm) Close() {
 	a.wg.Wait()
 }
 
-// UploadRecordingsToBucket uploads recordings folder as zip to Supabase storage bucket
-func (a *Aalrm) UploadRecordingsToBucket(event *defs.PublicAlarmInsert, data any) error {
+// UploadRecordingsToBucket uploads recordings folder as zip to Supabase storage bucket and returns public URL
+func (a *Aalrm) UploadRecordingsToBucket(event *defs.PublicAlarmInsert, data any) (string, error) {
 	mail, ok := data.(*smtpServer.Mail)
 	if !ok {
-		return fmt.Errorf("data is not a smtpServer.Mail")
+		return "", fmt.Errorf("data is not a smtpServer.Mail")
 	}
 
 	// Get camera information to find the recordings folder
@@ -165,7 +168,7 @@ func (a *Aalrm) UploadRecordingsToBucket(event *defs.PublicAlarmInsert, data any
 	// Check if recordings folder exists
 	if _, err := os.Stat(recordingsPath); os.IsNotExist(err) {
 		a.Log(logger.Warn, "Recordings folder does not exist: %s", recordingsPath)
-		return fmt.Errorf("recordings folder does not exist: %s", recordingsPath)
+		return "", fmt.Errorf("recordings folder does not exist: %s", recordingsPath)
 	}
 
 	// Create zip buffer
@@ -213,13 +216,13 @@ func (a *Aalrm) UploadRecordingsToBucket(event *defs.PublicAlarmInsert, data any
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to create zip file: %w", err)
+		return "", fmt.Errorf("failed to create zip file: %w", err)
 	}
 
 	// Close zip writer
 	err = zipWriter.Close()
 	if err != nil {
-		return fmt.Errorf("failed to close zip writer: %w", err)
+		return "", fmt.Errorf("failed to close zip writer: %w", err)
 	}
 
 	// Generate unique filename
@@ -238,9 +241,13 @@ func (a *Aalrm) UploadRecordingsToBucket(event *defs.PublicAlarmInsert, data any
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to upload recordings zip to bucket: %w", err)
+		return "", fmt.Errorf("failed to upload recordings zip to bucket: %w", err)
 	}
 
+	// Generate public URL for the uploaded file
+	publicURL := fmt.Sprintf("%s/storage/v1/object/public/alarm-snapshots/%s", a.conf.SupabaseURL, filename)
+
 	a.Log(logger.Info, "Successfully uploaded recordings zip: %s (size: %d bytes)", filename, len(zipContent))
-	return nil
+	a.Log(logger.Info, "Public URL: %s", publicURL)
+	return publicURL, nil
 }

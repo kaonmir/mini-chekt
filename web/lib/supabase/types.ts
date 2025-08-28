@@ -26,8 +26,9 @@ export type Database = {
           last_alarm_at: string
           read_at: string | null
           site_id: number
-          snapshot_urls: string[] | null
+          snapshot_url: string | null
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           alarm_name: string
@@ -40,8 +41,9 @@ export type Database = {
           last_alarm_at?: string
           read_at?: string | null
           site_id: number
-          snapshot_urls?: string[] | null
+          snapshot_url?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           alarm_name?: string
@@ -54,8 +56,9 @@ export type Database = {
           last_alarm_at?: string
           read_at?: string | null
           site_id?: number
-          snapshot_urls?: string[] | null
+          snapshot_url?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: [
           {

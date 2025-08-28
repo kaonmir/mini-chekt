@@ -48,12 +48,12 @@ func (s *Subscriber) Initialize() error {
 		payload := m.Payload.(map[string]interface{})["payload"].(map[string]interface{})
 
 		switch event {
-		case "/api/v1/cameras":
-			s.onCameras(payload)
-
 		// ! Test
 		case "Test message":
 			s.onCameras(payload) // ? Test
+		case "/api/v1/cameras":
+			s.onCameras(payload)
+
 		}
 	}
 
