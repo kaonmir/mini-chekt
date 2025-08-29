@@ -8,12 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Save, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { InsertTable, UpdateTable } from "@/lib/database";
+import { InsertTable, Site, UpdateTable } from "@/lib/database";
 import LogoUpload from "@/components/logo-upload";
 
 interface SiteFormProps {
   mode: "create" | "edit";
-  initialData?: UpdateTable<"site">;
+  initialData?: Site;
   siteId?: number;
 }
 

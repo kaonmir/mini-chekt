@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Site } from "@/lib/database";
-import { Building2, Plus, Edit } from "lucide-react";
+import { Building2, Edit } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
