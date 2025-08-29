@@ -3,8 +3,10 @@
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import type { Site } from "@/lib/database";
-import { Building2 } from "lucide-react";
+import { Building2, Plus, Edit } from "lucide-react";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export function SiteList() {
   const [sites, setSites] = useState<Site[]>([]);
@@ -41,13 +43,15 @@ export function SiteList() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold">Sites</h2>
       {sites.length === 0 ? (
         <p>No sites found.</p>
       ) : (
         <ul className="space-y-2">
           {sites.map((site) => (
-            <li key={site.id} className="p-3 border rounded">
+            <li
+              key={site.id}
+              className="p-3 border rounded hover:bg-gray-50 transition-colors"
+            >
               <div className="flex items-center gap-3">
                 {site.logo_url ? (
                   <Image
@@ -62,16 +66,25 @@ export function SiteList() {
                     <Building2 className="h-5 w-5 text-gray-400" />
                   </div>
                 )}
-                <div className="flex-1">
-                  <h3 className="font-semibold">{site.site_name}</h3>
-                  {site.contact_name && (
-                    <p className="text-sm text-gray-600">
-                      Contact: {site.contact_name}
+                <Link href={`/sites/${site.id}`} className="flex-1">
+                  <div>
+                    <h3 className="font-semibold">{site.site_name}</h3>
+                    {site.contact_name && (
+                      <p className="text-sm text-gray-600">
+                        Contact: {site.contact_name}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      Status: {site.arm_status}
                     </p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    Status: {site.arm_status}
-                  </p>
+                  </div>
+                </Link>
+                <div className="flex items-center gap-2">
+                  <Link href={`/sites/${site.id}/edit`}>
+                    <Button variant="outline" size="sm">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </li>

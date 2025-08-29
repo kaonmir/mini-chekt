@@ -22,7 +22,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { disconnectBridgeFromSite, deleteCamera } from "./actions";
+import { disconnectBridgeFromSite, deleteCamera, deleteSite } from "./actions";
 
 interface Site {
   id: number;
@@ -75,6 +75,7 @@ export default function SiteClient({
   const router = useRouter();
   const [deletingBridgeId, setDeletingBridgeId] = useState<number | null>(null);
   const [deletingCameraId, setDeletingCameraId] = useState<number | null>(null);
+  const [deletingSite, setDeletingSite] = useState(false);
 
   const handleDeleteBridge = async (bridgeId: number) => {
     if (confirm("Are you sure you want to remove this bridge from the site?")) {
@@ -102,6 +103,25 @@ export default function SiteClient({
         alert("Failed to delete camera. Please try again.");
       } finally {
         setDeletingCameraId(null);
+      }
+    }
+  };
+
+  const handleDeleteSite = async () => {
+    if (
+      confirm(
+        `Are you sure you want to delete the site "${site.site_name}"? This action cannot be undone and will disconnect all bridges from this site.`
+      )
+    ) {
+      setDeletingSite(true);
+      try {
+        await deleteSite(site.id);
+        router.push("/sites");
+      } catch (error) {
+        console.error("Error deleting site:", error);
+        alert("Failed to delete site. Please try again.");
+      } finally {
+        setDeletingSite(false);
       }
     }
   };
@@ -166,6 +186,15 @@ export default function SiteClient({
                 <Settings className="h-4 w-4" />
               </Button>
             </Link>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteSite}
+              disabled={deletingSite}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deletingSite ? "Deleting..." : "Delete Site"}
+            </Button>
           </div>
         </div>
       </div>

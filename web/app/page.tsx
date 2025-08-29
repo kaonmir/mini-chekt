@@ -20,6 +20,7 @@ import {
   BarChart3,
   ArrowRight,
   LogOut,
+  Plus,
 } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -162,6 +163,26 @@ export default async function Home() {
               <CardContent>
                 <Button variant="outline" className="w-full">
                   Manage Sites
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Link>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Link href="/sites/new">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Add New Site
+                </CardTitle>
+                <CardDescription>
+                  Create a new site for monitoring
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" className="w-full">
+                  Create Site
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </CardContent>
