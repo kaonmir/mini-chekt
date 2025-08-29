@@ -10,8 +10,6 @@ import (
 	"github.com/abema/go-mp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4/seekablebuffer"
-
-	"github.com/kaonmir/mini-chekt/internal/logger"
 )
 
 func writeInit(f io.Writer, tracks []*formatFMP4Track) error {
@@ -121,7 +119,7 @@ func (s *formatFMP4Segment) close() error {
 	}
 
 	if s.fi != nil {
-		s.f.ri.Log(logger.Debug, "closing segment %s", s.path)
+		// s.f.ri.Log(logger.Debug, "closing segment %s", s.path)
 
 		// write overall duration in the header to speed up the playback server
 		duration := s.endDTS - s.startDTS

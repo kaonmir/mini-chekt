@@ -10,7 +10,6 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4/seekablebuffer"
 
-	"github.com/kaonmir/mini-chekt/internal/logger"
 	"github.com/kaonmir/mini-chekt/internal/recordstore"
 )
 
@@ -58,7 +57,7 @@ func (p *formatFMP4Part) initialize() {
 func (p *formatFMP4Part) close() error {
 	if p.s.fi == nil {
 		p.s.path = recordstore.Path{Start: p.s.startNTP}.Encode(p.s.f.ri.pathFormat2)
-		p.s.f.ri.Log(logger.Debug, "creating segment %s", p.s.path)
+		// p.s.f.ri.Log(logger.Debug, "creating segment %s", p.s.path)
 
 		err := os.MkdirAll(filepath.Dir(p.s.path), 0o755)
 		if err != nil {

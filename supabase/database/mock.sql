@@ -3,8 +3,8 @@ INSERT INTO site (site_name, contact_name, contact_phone, logo_url, arm_status, 
 ('Seoul Central Office', 'Kim Min-su', '+82-2-1234-5678', null, 'arm', '2024-01-15 09:00:00+09'),
 ('Busan Harbor Facility', 'Park Ji-hyun', '+82-51-9876-5432', null, 'disarm', '2024-01-14 18:30:00+09'),
 ('Incheon Airport Terminal', 'Lee Dong-wook', '+82-32-5555-1234', null, 'arm', '2024-01-15 06:00:00+09'),
-('Daegu Manufacturing Plant', 'Choi Soo-jin', '+82-53-7777-8888', null, 'arm', '2024-01-15 08:15:00+09'),
-('Daejeon Research Center', 'Jung Hae-won', '+82-42-3333-4444', null, 'disarm', '2024-01-14 22:00:00+09');
+('Daegu Manufacturing Plant', 'Choi Soo-jin', '+82-53-7777-8888', "https://jffrztopgbmexbacmihc.supabase.co/storage/v1/object/public/site-logos/a1e7d09a-04e0-492e-9cfd-583c8164ce95/1756434395011.png", 'arm', '2024-01-15 08:15:00+09'),
+('Daejeon Research Center', 'Jung Hae-won', '+82-42-3333-4444', "https://jffrztopgbmexbacmihc.supabase.co/storage/v1/object/public/site-logos/67fdde8d-7c9e-45ba-9b49-a895e653379a/1756431819267.png", 'disarm', '2024-01-14 22:00:00+09');
 
 -- Mock data for bridge table
 INSERT INTO bridge (bridge_uuid, site_id, bridge_name, healthy, last_checked_at) VALUES

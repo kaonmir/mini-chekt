@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kaonmir/mini-chekt/internal/logger"
 	"github.com/kaonmir/mini-chekt/internal/recordstore"
 )
 
@@ -30,7 +29,7 @@ func (s *formatMPEGTSSegment) close() error {
 	err := s.f.bw.Flush()
 
 	if s.fi != nil {
-		s.f.ri.Log(logger.Debug, "closing segment %s", s.path)
+		// s.f.ri.Log(logger.Debug, "closing segment %s", s.path)
 		err2 := s.fi.Close()
 		if err == nil {
 			err = err2
@@ -48,7 +47,7 @@ func (s *formatMPEGTSSegment) close() error {
 func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
 		s.path = recordstore.Path{Start: s.startNTP}.Encode(s.f.ri.pathFormat2)
-		s.f.ri.Log(logger.Debug, "creating segment %s", s.path)
+		// s.f.ri.Log(logger.Debug, "creating segment %s", s.path)
 
 		err := os.MkdirAll(filepath.Dir(s.path), 0o755)
 		if err != nil {
